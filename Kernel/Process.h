@@ -300,6 +300,7 @@ public:
     int sys$unveil(const Syscall::SC_unveil_params*);
     int sys$perf_event(int type, FlatPtr arg1, FlatPtr arg2);
     int sys$get_stack_bounds(FlatPtr* stack_base, size_t* stack_size);
+    int sys$ptrace(const Syscall::SC_ptrace_params*);
 
     template<bool sockname, typename Params>
     int get_sock_or_peer_name(const Params&);
@@ -317,7 +318,7 @@ public:
     void dump_regions();
 
     ProcessTracer* tracer() { return m_tracer.ptr(); }
-    ProcessTracer& ensure_tracer();
+    void set_tracer(pid_t tracer);
 
     u32 m_ticks_in_user { 0 };
     u32 m_ticks_in_kernel { 0 };

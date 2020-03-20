@@ -70,6 +70,8 @@ typedef i16 int16_t;
 typedef i32 int32_t;
 typedef i64 int64_t;
 
+typedef int pid_t;
+
 #else
 #    include <stdint.h>
 #    include <sys/types.h>

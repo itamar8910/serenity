@@ -544,3 +544,7 @@ struct rtentry {
 
 #define PURGE_ALL_VOLATILE 0x1
 #define PURGE_ALL_CLEAN_INODE 0x2
+
+#define PT_TRACE_ME 1
+#define PT_ATTACH 2
+#define PT_CONTINUE 3

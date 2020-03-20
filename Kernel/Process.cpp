@@ -3964,22 +3964,11 @@ int Process::sys$watch_file(const char* user_path, size_t path_length)
     return fd;
 }
 
-int Process::sys$systrace(pid_t pid)
+int Process::sys$systrace(pid_t)
 {
     REQUIRE_PROMISE(proc);
-    InterruptDisabler disabler;
-    auto* peer = Process::from_pid(pid);
-    if (!peer)
-        return -ESRCH;
-    if (peer->uid() != m_euid)
-        return -EACCES;
-    int fd = alloc_fd();
-    if (fd < 0)
-        return fd;
-    auto description = FileDescription::create(peer->ensure_tracer());
-    description->set_readable(true);
-    m_fds[fd].set(move(description), 0);
-    return fd;
+    ASSERT_NOT_REACHED();
+    return -ENOTIMPL;
 }
 
 int Process::sys$halt()
@@ -4110,13 +4099,6 @@ int Process::sys$umount(const char* user_mountpoint, size_t mountpoint_length)
 
     auto guest_inode_id = metadata_or_error.value().inode;
     return VFS::the().unmount(guest_inode_id);
-}
-
-ProcessTracer& Process::ensure_tracer()
-{
-    if (!m_tracer)
-        m_tracer = ProcessTracer::create(m_pid);
-    return *m_tracer;
 }
 
 void Process::FileDescriptionAndFlags::clear()
@@ -4885,6 +4867,61 @@ int Process::sys$get_stack_bounds(FlatPtr* user_stack_base, size_t* user_stack_s
     copy_to_user(user_stack_base, &stack_base);
     copy_to_user(user_stack_size, &stack_size);
     return 0;
+}
+
+int Process::sys$ptrace(const Syscall::SC_ptrace_params* user_params)
+{
+    dbg() << "ptrace syscall";
+    Syscall::SC_ptrace_params params;
+    if (!validate_read_and_copy_typed(&params, user_params))
+        return -EFAULT;
+
+    if (params.request == PT_TRACE_ME) {
+        return -ENOTIMPL;
+    }
+
+    if(params.pid == m_pid)
+        return -EINVAL;
+
+    InterruptDisabler disabler;
+    auto* peer = Process::from_pid(params.pid);
+    if (!peer)
+        return -ESRCH;
+
+    // FIXME: does this deal with setuid processes correctly?
+    if (peer->uid() != m_euid)
+        return -EACCES;
+    
+    if (params.request == PT_ATTACH) {
+        if (peer->tracer()) 
+        {
+            return -EBUSY;
+        }
+        peer->set_tracer(m_pid);
+        peer->send_signal(SIGSTOP, this);
+        return 0;
+    }
+
+    auto* tracer = peer->tracer();
+
+    if (!tracer) 
+    {
+        return -EPERM;
+    }
+
+    if(params.request == PT_CONTINUE) {
+        dbg() << "PT_CONTINUE";
+        peer->send_signal(SIGCONT, this);
+        return 0;
+    }
+
+    // TODO: deal with syscalls if PT_SYSCALL
+
+    return -EINVAL; 
+}
+
+void Process::set_tracer(pid_t tracer) {
+     m_tracer = ProcessTracer::create(tracer);
 }
 
 }

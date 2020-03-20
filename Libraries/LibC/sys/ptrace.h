@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, Andreas Kling <kling@serenityos.org>
+ * Copyright (c) 2020, Andreas Kling <kling@serenityos.org>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,28 +26,14 @@
 
 #pragma once
 
-#include <Kernel/UnixTypes.h>
-#include <AK/RefCounted.h>
-#include <AK/NonnullRefPtr.h>
-#include <AK/CircularDeque.h>
+#include <sys/types.h>
 
-namespace Kernel {
+__BEGIN_DECLS
 
-class ProcessTracer : public RefCounted<ProcessTracer> {
-public:
-    static NonnullRefPtr<ProcessTracer> create(pid_t tracer) { return adopt(*new ProcessTracer(tracer)); }
+#define PT_TRACE_ME 1
+#define PT_ATTACH 2
+#define PT_CONTINUE 3
 
-    bool is_dead() const { return m_dead; }
-    void set_dead() { m_dead = true; }
+int ptrace(int request, pid_t pid, void* addr, int data);
 
-    void did_syscall(u32 function, u32 arg1, u32 arg2, u32 arg3, u32 result);
-    pid_t tracer() const { return m_tracer; }
-
-private:
-    explicit ProcessTracer(pid_t);
-
-    pid_t m_tracer;
-    bool m_dead { false };
-};
-
-}
+__END_DECLS

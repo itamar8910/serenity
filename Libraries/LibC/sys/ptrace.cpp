@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, Andreas Kling <kling@serenityos.org>
+ * Copyright (c) 2020, Andreas Kling <kling@serenityos.org>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -24,30 +24,23 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
+#include <sys/ptrace.h>
+#include <Kernel/Syscall.h>
+#include <errno.h>
 
-#include <Kernel/UnixTypes.h>
-#include <AK/RefCounted.h>
-#include <AK/NonnullRefPtr.h>
-#include <AK/CircularDeque.h>
+extern "C" {
 
-namespace Kernel {
-
-class ProcessTracer : public RefCounted<ProcessTracer> {
-public:
-    static NonnullRefPtr<ProcessTracer> create(pid_t tracer) { return adopt(*new ProcessTracer(tracer)); }
-
-    bool is_dead() const { return m_dead; }
-    void set_dead() { m_dead = true; }
-
-    void did_syscall(u32 function, u32 arg1, u32 arg2, u32 arg3, u32 result);
-    pid_t tracer() const { return m_tracer; }
-
-private:
-    explicit ProcessTracer(pid_t);
-
-    pid_t m_tracer;
-    bool m_dead { false };
-};
+int ptrace(int request, pid_t pid, void* addr, int data)
+{
+   Syscall::SC_ptrace_params params {
+       request,
+       pid,
+       reinterpret_cast<u8*>(addr),
+       data
+   };
+   int rc = syscall(SC_ptrace, &params);
+   __RETURN_WITH_ERRNO(rc, rc, -1);
+}
 
 }
+
