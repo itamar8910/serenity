@@ -122,6 +122,7 @@ public:
         virtual ~Blocker() {}
         virtual bool should_unblock(Thread&, time_t now_s, long us) = 0;
         virtual const char* state_string() const = 0;
+        virtual bool is_reason_signal() const { return false; }
         void set_interrupted_by_death() { m_was_interrupted_by_death = true; }
         bool was_interrupted_by_death() const { return m_was_interrupted_by_death; }
         void set_interrupted_by_signal() { m_was_interrupted_while_blocked = true; }
@@ -253,6 +254,7 @@ public:
             }
             ASSERT_NOT_REACHED();
         }
+        virtual bool is_reason_signal() const override { return m_reason == Reason::Signal; }
 
     private:
         Reason m_reason;
@@ -356,6 +358,7 @@ public:
     void terminate_due_to_signal(u8 signal);
     bool should_ignore_signal(u8 signal) const;
     bool has_signal_handler(u8 signal) const;
+    bool has_pending_signal(u8 signal) const {return m_pending_signals & (1<<(signal-1));}
 
     FPUState& fpu_state() { return *m_fpu_state; }
 

@@ -517,8 +517,10 @@ ShouldUnblockThread Thread::dispatch_signal(u8 signal)
         {
             if(!thread_tracer->is_pending(signal)) {
                 // stop, wait for tracer to decide what to do with this signal
-                dbg() << "Thread " << m_name << "stopping due to signal:" << signal << ", waiting for tracer";
                 m_stop_signal = signal;
+                if(m_blocker && m_blocker->is_reason_signal())
+                    unblock();
+                m_stop_state = m_state;
                 set_state(Stopped);
                 return ShouldUnblockThread::No;
             }
