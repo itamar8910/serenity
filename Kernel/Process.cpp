@@ -56,7 +56,6 @@
 #include <Kernel/Net/Socket.h>
 #include <Kernel/PerformanceEventBuffer.h>
 #include <Kernel/Process.h>
-#include <Kernel/ProcessTracer.h>
 #include <Kernel/Profiling.h>
 #include <Kernel/RTC.h>
 #include <Kernel/Random.h>
@@ -3078,9 +3077,6 @@ void Process::die()
     // slave owner, we have to allow the PTY pair to be torn down.
     m_tty = nullptr;
 
-    if (m_tracer)
-        m_tracer->set_dead();
-
     kill_all_threads();
 }
 
@@ -4884,12 +4880,12 @@ int Process::sys$ptrace(const Syscall::SC_ptrace_params* user_params)
         return -EINVAL;
 
     InterruptDisabler disabler;
-    auto* peer = Process::from_pid(params.pid);
+    auto* peer = Thread::from_tid(params.pid);
     if (!peer)
         return -ESRCH;
 
     // FIXME: does this deal with setuid processes correctly?
-    if (peer->uid() != m_euid)
+    if (peer->process().uid() != m_euid)
         return -EACCES;
     
     if (params.request == PT_ATTACH) {
@@ -4918,10 +4914,6 @@ int Process::sys$ptrace(const Syscall::SC_ptrace_params* user_params)
     // TODO: deal with syscalls if PT_SYSCALL
 
     return -EINVAL; 
-}
-
-void Process::set_tracer(pid_t tracer) {
-     m_tracer = ProcessTracer::create(tracer);
 }
 
 }

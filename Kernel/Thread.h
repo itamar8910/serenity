@@ -430,6 +430,9 @@ public:
 
     static constexpr u32 default_kernel_stack_size = 65536;
     static constexpr u32 default_userspace_stack_size = 4 * MB;
+    
+    ThreadTracer* tracer() { return m_tracer.ptr(); }
+    void set_tracer(pid_t tracer);
 
 private:
     IntrusiveListNode m_runnable_list_node;
@@ -490,6 +493,8 @@ private:
 
     bool m_dump_backtrace_on_finalization { false };
     bool m_should_die { false };
+
+    RefPtr<ThreadTracer> m_tracer;
 
     void yield_without_holding_big_lock();
 };

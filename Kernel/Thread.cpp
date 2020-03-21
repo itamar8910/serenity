@@ -38,6 +38,7 @@
 #include <Kernel/VM/ProcessPagingScope.h>
 #include <LibC/signal_numbers.h>
 #include <LibELF/ELFLoader.h>
+#include <Kernel/ThreadTracer.h>
 
 //#define SIGNAL_DEBUG
 //#define THREAD_DEBUG
@@ -510,6 +511,21 @@ ShouldUnblockThread Thread::dispatch_signal(u8 signal)
         m_stop_state = State::Invalid;
     }
 
+    else {
+        auto* thread_tracer = tracer();
+        if (thread_tracer != nullptr)
+        {
+            if(!thread_tracer->is_pending(signal)) {
+                // stop, wait for tracer to decide what to do with this signal
+                dbg() << "Thread " << m_name << "stopping due to signal:" << signal << ", waiting for tracer";
+                m_stop_signal = signal;
+                set_state(Stopped);
+                return ShouldUnblockThread::No;
+            }
+            thread_tracer->unset_signal(signal);
+        }
+    }
+
     auto handler_vaddr = action.handler_or_sigaction;
     if (handler_vaddr.is_null()) {
         switch (default_signal_action(signal)) {
@@ -899,5 +915,10 @@ void Thread::reset_fpu_state()
 {
     memcpy(m_fpu_state, &s_clean_fpu_state, sizeof(FPUState));
 }
+
+void Thread::set_tracer(pid_t tracer) {
+     m_tracer = ThreadTracer::create(tracer);
+}
+
 
 }

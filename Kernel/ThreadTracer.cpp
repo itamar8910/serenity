@@ -24,30 +24,14 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
-
-#include <Kernel/UnixTypes.h>
-#include <AK/RefCounted.h>
-#include <AK/NonnullRefPtr.h>
-#include <AK/CircularDeque.h>
+#include <AK/Memory.h>
+#include <Kernel/ThreadTracer.h>
 
 namespace Kernel {
 
-class ProcessTracer : public RefCounted<ProcessTracer> {
-public:
-    static NonnullRefPtr<ProcessTracer> create(pid_t tracer) { return adopt(*new ProcessTracer(tracer)); }
-
-    bool is_dead() const { return m_dead; }
-    void set_dead() { m_dead = true; }
-
-    void did_syscall(u32 function, u32 arg1, u32 arg2, u32 arg3, u32 result);
-    pid_t tracer() const { return m_tracer; }
-
-private:
-    explicit ProcessTracer(pid_t);
-
-    pid_t m_tracer;
-    bool m_dead { false };
-};
+ThreadTracer::ThreadTracer(pid_t m_tracer)
+    : m_tracer(m_tracer)
+{
+}
 
 }

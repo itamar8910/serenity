@@ -93,7 +93,7 @@ OBJS = \
     PCI/Device.o \
     PerformanceEventBuffer.o \
     Process.o \
-    ProcessTracer.o \
+    ThreadTracer.o \
     Profiling.o \
     RTC.o \
     Random.o \

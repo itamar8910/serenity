@@ -24,14 +24,32 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <AK/Memory.h>
-#include <Kernel/ProcessTracer.h>
+#pragma once
+
+#include <Kernel/UnixTypes.h>
+#include <AK/RefCounted.h>
+#include <AK/NonnullRefPtr.h>
+#include <AK/CircularDeque.h>
 
 namespace Kernel {
 
-ProcessTracer::ProcessTracer(pid_t m_tracer)
-    : m_tracer(m_tracer)
-{
-}
+class ThreadTracer : public RefCounted<ThreadTracer> {
+public:
+    static NonnullRefPtr<ThreadTracer> create(pid_t tracer) { return adopt(*new ThreadTracer(tracer)); }
+
+    void did_syscall(u32 function, u32 arg1, u32 arg2, u32 arg3, u32 result);
+    pid_t tracer() const { return m_tracer; }
+
+    bool is_pending(u32 signal) const {return m_pending_signals & (1 << (signal-1));}
+    void set_signal(u32 signal) {m_pending_signals |= (1 << (signal-1));}
+    void unset_signal(u32 signal) {m_pending_signals &= ~(1 << (signal-1));}
+
+
+private:
+    explicit ThreadTracer(pid_t);
+
+    pid_t m_tracer;
+    u32 m_pending_signals;
+};
 
 }

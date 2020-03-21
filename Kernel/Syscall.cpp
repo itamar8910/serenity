@@ -26,7 +26,7 @@
 
 #include <Kernel/Arch/i386/CPU.h>
 #include <Kernel/Process.h>
-#include <Kernel/ProcessTracer.h>
+#include <Kernel/ThreadTracer.h>
 #include <Kernel/Random.h>
 #include <Kernel/Syscall.h>
 #include <Kernel/VM/MemoryManager.h>

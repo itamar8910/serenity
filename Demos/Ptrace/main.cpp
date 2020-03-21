@@ -2,6 +2,7 @@
 #include <sys/ptrace.h>
 #include <unistd.h>
 #include <AK/LogStream.h>
+#include <sys/wait.h>
 
 int main()
 {
@@ -24,11 +25,12 @@ int main()
         return 1;
     }
     
-    // TODO: waitpid
-
     dbg() << "attached";
 
-    sleep(2);
+    if(waitpid(pid, nullptr, WSTOPPED) != pid)
+    {
+        perror("waitpid");
+    }
 
     dbg() << "continuing";
 
@@ -36,8 +38,6 @@ int main()
         perror("continue");
         return 1;
     }
-
-    // TODO: waitpid
 
     dbg() << "continued";
 

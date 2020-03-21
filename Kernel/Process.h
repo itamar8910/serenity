@@ -317,9 +317,6 @@ public:
     const NonnullOwnPtrVector<Region>& regions() const { return m_regions; }
     void dump_regions();
 
-    ProcessTracer* tracer() { return m_tracer.ptr(); }
-    void set_tracer(pid_t tracer);
-
     u32 m_ticks_in_user { 0 };
     u32 m_ticks_in_kernel { 0 };
 
@@ -500,8 +497,6 @@ private:
     mode_t m_umask { 022 };
 
     FixedArray<gid_t> m_extra_gids;
-
-    RefPtr<ProcessTracer> m_tracer;
 
     WeakPtr<Region> m_master_tls_region;
     size_t m_master_tls_size { 0 };
