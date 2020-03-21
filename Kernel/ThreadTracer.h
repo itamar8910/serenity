@@ -44,12 +44,16 @@ public:
     void set_signal(u32 signal) {m_pending_signals |= (1 << (signal-1));}
     void unset_signal(u32 signal) {m_pending_signals &= ~(1 << (signal-1));}
 
+    bool trace_syscalls() const { return m_trace_syscalls; }
+    void set_trace_syscalls(bool val) { m_trace_syscalls = val; }
+
 
 private:
     explicit ThreadTracer(pid_t);
 
     pid_t m_tracer;
-    u32 m_pending_signals;
+    u32 m_pending_signals {0};
+    bool m_trace_syscalls {false};
 };
 
 }

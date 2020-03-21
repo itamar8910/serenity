@@ -122,6 +122,11 @@ int handle(RegisterState& regs, u32 function, u32 arg1, u32 arg2, u32 arg3)
 
 void syscall_handler(RegisterState& regs)
 {
+    if (Thread::current->tracer() && Thread::current->tracer()->trace_syscalls()) {
+        dbg() << "ptrace syscall entry: " << regs.eax;
+        Thread::current->tracer()->set_trace_syscalls(false);
+        Thread::current->send_urgent_signal_to_self(SIGTRAP);
+    }
     // Special handling of the "gettid" syscall since it's extremely hot.
     // FIXME: Remove this hack once userspace locks stop calling it so damn much.
     if (regs.eax == SC_gettid) {
@@ -166,9 +171,13 @@ void syscall_handler(RegisterState& regs)
     u32 arg2 = regs.ecx;
     u32 arg3 = regs.ebx;
     regs.eax = (u32)Syscall::handle(regs, function, arg1, arg2, arg3);
-    // TODO: ptrace
-    // if (auto* tracer = process.tracer())
-    //     tracer->did_syscall(function, arg1, arg2, arg3, regs.eax);
+
+    if (Thread::current->tracer() && Thread::current->tracer()->trace_syscalls()) {
+        dbg() << "ptrace syscall exit: " << regs.eax;
+        Thread::current->tracer()->set_trace_syscalls(false);
+        Thread::current->send_urgent_signal_to_self(SIGTRAP);
+    }
+
     process.big_lock().unlock();
 
     // Check if we're supposed to return to userspace or just die.

@@ -548,3 +548,4 @@ struct rtentry {
 #define PT_TRACE_ME 1
 #define PT_ATTACH 2
 #define PT_CONTINUE 3
+#define PT_SYSCALL 4

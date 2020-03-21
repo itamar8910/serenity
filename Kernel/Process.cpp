@@ -62,6 +62,7 @@
 #include <Kernel/Scheduler.h>
 #include <Kernel/SharedBuffer.h>
 #include <Kernel/Syscall.h>
+#include <Kernel/ThreadTracer.h>
 #include <Kernel/TTY/MasterPTY.h>
 #include <Kernel/TTY/TTY.h>
 #include <Kernel/Thread.h>
@@ -4911,7 +4912,12 @@ int Process::sys$ptrace(const Syscall::SC_ptrace_params* user_params)
         return 0;
     }
 
-    // TODO: deal with syscalls if PT_SYSCALL
+    if(params.request == PT_SYSCALL)
+    {
+        tracer->set_trace_syscalls(true);
+        peer->send_signal(SIGCONT, this);
+        return 0;
+    }
 
     return -EINVAL; 
 }
