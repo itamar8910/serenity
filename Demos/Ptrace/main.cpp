@@ -8,36 +8,34 @@
 
 int main()
 {
-    dbg() << "hello";
     int pid = fork();
     if(!pid) {
-        for(;;) {
-            dbg() << "child\n";
-            usleep(100 * 1000);
+        if (ptrace(PT_TRACE_ME, 0, 0, 0) == -1) {
+            perror("traceme");
+            return 1;
         }
+        execl("/bin/ls", "ls", "/", nullptr);
     }
-
-    sleep(1);
-
-    printf("attaching\n");
-    dbg() << "attaching";
-
-    if (ptrace(PT_ATTACH, pid, 0, 0) == -1) {
-        perror("attach");
-        return 1;
-    }
-    
-    dbg() << "attached";
 
     if (waitpid(pid, nullptr, WSTOPPED) != pid) {
         perror("waitpid");
         return 1;
     }
 
-    dbg() << "continuing";
+    if (ptrace(PT_ATTACH, pid, 0, 0) == -1) {
+        perror("attach");
+        return 1;
+    }
+    
+    if (waitpid(pid, nullptr, WSTOPPED) != pid) {
+        perror("waitpid");
+        return 1;
+    }
 
     for(;;) {
         if (ptrace(PT_SYSCALL, pid, 0, 0) == -1) {
+            if(errno == ESRCH)
+                return 0;
             perror("syscall");
             return 1;
         }
@@ -54,9 +52,19 @@ int main()
 
         dbg() << "syscall: " << Syscall::to_string(static_cast<Syscall::Function>(regs.eax));
 
-        sleep(1);
+        // skip syscall exit
+        if (ptrace(PT_SYSCALL, pid, 0, 0) == -1) {
+            if(errno == ESRCH)
+                return 0;
+            perror("syscall");
+            return 1;
+        }
+        if (waitpid(pid, nullptr, WSTOPPED) != pid) {
+            perror("waitpid");
+            return 1;
+        }
+
     }
-    sleep(5);
 
     return 0;
 }

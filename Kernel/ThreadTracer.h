@@ -41,7 +41,7 @@ public:
     static NonnullRefPtr<ThreadTracer> create(pid_t tracer) { return adopt(*new ThreadTracer(tracer)); }
 
     void did_syscall(u32 function, u32 arg1, u32 arg2, u32 arg3, u32 result);
-    pid_t tracer() const { return m_tracer; }
+    pid_t tracer_pid() const { return m_tracer_pid; }
 
     bool is_pending(u32 signal) const {return m_pending_signals & (1 << (signal-1));}
     void set_signal(u32 signal) {m_pending_signals |= (1 << (signal-1));}
@@ -57,7 +57,7 @@ public:
 private:
     explicit ThreadTracer(pid_t);
 
-    pid_t m_tracer;
+    pid_t m_tracer_pid;
     u32 m_pending_signals {0};
     bool m_trace_syscalls {false};
     OwnPtr<PtraceRegisters> m_regs;

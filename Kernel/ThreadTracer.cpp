@@ -29,8 +29,8 @@
 
 namespace Kernel {
 
-ThreadTracer::ThreadTracer(pid_t m_tracer)
-    : m_tracer(m_tracer)
+ThreadTracer::ThreadTracer(pid_t tracer_pid)
+    : m_tracer_pid(tracer_pid)
 {
 }
 

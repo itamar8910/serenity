@@ -1235,6 +1235,9 @@ int Process::sys$execve(const Syscall::SC_execve_params* user_params)
     if (params.arguments.length > ARG_MAX || params.environment.length > ARG_MAX)
         return -E2BIG;
 
+    if(m_traceme)
+        Thread::current->send_urgent_signal_to_self(SIGSTOP);
+
     String path;
     {
         auto path_arg = get_syscall_path_argument(params.path);
@@ -4873,7 +4876,11 @@ int Process::sys$ptrace(const Syscall::SC_ptrace_params* user_params)
         return -EFAULT;
 
     if (params.request == PT_TRACE_ME) {
-        return -ENOTIMPL;
+        if(Thread::current->tracer())
+            return -EBUSY;
+
+        m_traceme = true;
+        return 0;
     }
 
     if(params.pid == m_pid)
@@ -4894,7 +4901,8 @@ int Process::sys$ptrace(const Syscall::SC_ptrace_params* user_params)
             return -EBUSY;
         }
         peer->set_tracer(m_pid);
-        peer->send_signal(SIGSTOP, this);
+        if(peer->state() != Thread::State::Stopped && !(peer->m_blocker && peer->m_blocker->is_reason_signal()))
+            peer->send_signal(SIGSTOP, this);
         return 0;
     }
 
@@ -4902,6 +4910,9 @@ int Process::sys$ptrace(const Syscall::SC_ptrace_params* user_params)
 
     if (!tracer) 
         return -EPERM;
+
+    if(tracer->tracer_pid() != m_pid)
+        return -EBUSY;
 
     if(peer->m_state == Thread::State::Running)
         return -EBUSY;

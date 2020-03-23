@@ -522,6 +522,10 @@ private:
     OwnPtr<PerformanceEventBuffer> m_perf_event_buffer;
 
     u32 m_inspector_count { 0 };
+
+    // for ptrace's PT_TRACEME flag
+    // if true, process will wait for tracer at the next execve syscall
+    bool m_traceme { false };
 };
 
 class ProcessInspectionHandle {

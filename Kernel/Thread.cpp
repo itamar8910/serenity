@@ -509,6 +509,8 @@ ShouldUnblockThread Thread::dispatch_signal(u8 signal)
         ASSERT(m_stop_state != State::Invalid);
         set_state(m_stop_state);
         m_stop_state = State::Invalid;
+        if(m_state != Thread::Runnable && m_state != Thread::Running && m_blocker && m_blocker->is_reason_signal())
+            unblock();
     }
 
     else {
