@@ -3,6 +3,8 @@
 #include <unistd.h>
 #include <AK/LogStream.h>
 #include <sys/wait.h>
+#include <LibC/sys/arch/i386/regs.h>
+#include <Kernel/Syscall.h>
 
 int main()
 {
@@ -34,23 +36,26 @@ int main()
 
     dbg() << "continuing";
 
-    if (ptrace(PT_SYSCALL, pid, 0, 0) == -1) {
-        perror("syscall");
-        return 1;
-    }
-    if (waitpid(pid, nullptr, WSTOPPED) != pid) {
-        perror("waitpid");
-        return 1;
-    }
+    for(;;) {
+        if (ptrace(PT_SYSCALL, pid, 0, 0) == -1) {
+            perror("syscall");
+            return 1;
+        }
+        if (waitpid(pid, nullptr, WSTOPPED) != pid) {
+            perror("waitpid");
+            return 1;
+        }
 
-    dbg() << "intercepted syscall";
-    sleep(1);
+        PtraceRegisters regs = {};
+        if (ptrace(PT_GETREGS, pid, &regs, 0) == -1) {
+            perror("getregs");
+            return 1;
+        }
 
-    if (ptrace(PT_CONTINUE, pid, 0, 0) == -1) {
-        perror("syscall");
-        return 1;
+        dbg() << "syscall: " << Syscall::to_string(static_cast<Syscall::Function>(regs.eax));
+
+        sleep(1);
     }
-
     sleep(5);
 
     return 0;

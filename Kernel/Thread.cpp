@@ -918,9 +918,16 @@ void Thread::reset_fpu_state()
     memcpy(m_fpu_state, &s_clean_fpu_state, sizeof(FPUState));
 }
 
-void Thread::set_tracer(pid_t tracer) {
+void Thread::set_tracer(pid_t tracer)
+{
      m_tracer = ThreadTracer::create(tracer);
 }
 
+void Thread::tracer_trap(const RegisterState& regs)
+{
+    ASSERT(!m_tracer.is_null());
+    m_tracer->set_regs(regs);
+    send_urgent_signal_to_self(SIGTRAP);
+}
 
 }

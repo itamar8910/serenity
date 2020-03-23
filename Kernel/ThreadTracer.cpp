@@ -34,4 +34,28 @@ ThreadTracer::ThreadTracer(pid_t m_tracer)
 {
 }
 
+void ThreadTracer::set_regs(const RegisterState& regs)
+{
+    PtraceRegisters r = 
+        {
+        regs.eax,
+        regs.ecx,
+        regs.edx,
+        regs.ebx,
+        regs.esp,
+        regs.ebp,
+        regs.esi,
+        regs.edi,
+        regs.eip,
+        regs.eflags,
+        regs.cs,
+        regs.ss,
+        regs.ds,
+        regs.es,
+        regs.fs,
+        regs.gs,
+        };
+    m_regs = make<PtraceRegisters>(r);
+}
+
 }

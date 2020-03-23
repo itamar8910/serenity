@@ -4868,7 +4868,6 @@ int Process::sys$get_stack_bounds(FlatPtr* user_stack_base, size_t* user_stack_s
 
 int Process::sys$ptrace(const Syscall::SC_ptrace_params* user_params)
 {
-    dbg() << "ptrace syscall";
     Syscall::SC_ptrace_params params;
     if (!validate_read_and_copy_typed(&params, user_params))
         return -EFAULT;
@@ -4902,24 +4901,44 @@ int Process::sys$ptrace(const Syscall::SC_ptrace_params* user_params)
     auto* tracer = peer->tracer();
 
     if (!tracer) 
-    {
         return -EPERM;
-    }
 
-    if(params.request == PT_CONTINUE) {
-        dbg() << "PT_CONTINUE";
-        peer->send_signal(SIGCONT, this);
-        return 0;
-    }
+    if(peer->m_state == Thread::State::Running)
+        return -EBUSY;
 
-    if(params.request == PT_SYSCALL)
+    switch(params.request)
     {
-        tracer->set_trace_syscalls(true);
-        peer->send_signal(SIGCONT, this);
-        return 0;
+        case PT_CONTINUE:
+            peer->send_signal(SIGCONT, this);
+            break;
+
+        case PT_SYSCALL:
+            tracer->set_trace_syscalls(true);
+            peer->send_signal(SIGCONT, this);
+            break;
+
+        case PT_GETREGS:
+        {
+            if(!tracer->has_regs())
+                return -EINVAL;
+
+            PtraceRegisters* regs = reinterpret_cast<PtraceRegisters*>(params.addr);
+            if (!validate_write(regs, sizeof(PtraceRegisters)))
+                return -EFAULT;
+
+            {
+                SmapDisabler disabler;
+                *regs = tracer->regs();
+            }
+            break;
+        }
+
+        default:
+            return -EINVAL; 
     }
 
-    return -EINVAL; 
+
+    return 0;
 }
 
 }

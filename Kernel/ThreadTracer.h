@@ -29,7 +29,10 @@
 #include <Kernel/UnixTypes.h>
 #include <AK/RefCounted.h>
 #include <AK/NonnullRefPtr.h>
+#include <AK/OwnPtr.h>
 #include <AK/CircularDeque.h>
+#include <Kernel/Arch/i386/CPU.h>
+#include <LibC/sys/arch/i386/regs.h>
 
 namespace Kernel {
 
@@ -47,6 +50,9 @@ public:
     bool trace_syscalls() const { return m_trace_syscalls; }
     void set_trace_syscalls(bool val) { m_trace_syscalls = val; }
 
+    void set_regs(const RegisterState& regs);
+    bool has_regs() const { return m_regs; }
+    const PtraceRegisters& regs() const { ASSERT(m_regs); return *m_regs; }
 
 private:
     explicit ThreadTracer(pid_t);
@@ -54,6 +60,7 @@ private:
     pid_t m_tracer;
     u32 m_pending_signals {0};
     bool m_trace_syscalls {false};
+    OwnPtr<PtraceRegisters> m_regs;
 };
 
 }

@@ -436,6 +436,7 @@ public:
     
     ThreadTracer* tracer() { return m_tracer.ptr(); }
     void set_tracer(pid_t tracer);
+    void tracer_trap(const RegisterState&);
 
 private:
     IntrusiveListNode m_runnable_list_node;
