@@ -32,10 +32,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/ptrace.h>
+#include <LibC/sys/arch/i386/regs.h>
+#include <sys/wait.h>
 
 static int usage()
 {
-    printf("usage: strace [-p PID] [command...]\n");
+    printf("usage: strace [command...]\n");
     return 0;
 }
 
@@ -45,58 +48,71 @@ int main(int argc, char** argv)
         return usage();
 
     pid_t pid = -1;
-    bool pid_is_child = false;
 
-    if (!strcmp(argv[1], "-p")) {
-        if (argc != 3)
-            return usage();
-        pid = atoi(argv[2]);
-    } else {
-        pid_is_child = true;
-        pid = fork();
-        if (!pid) {
-            kill(getpid(), SIGSTOP);
-            int rc = execvp(argv[1], &argv[1]);
-            if (rc < 0) {
-                perror("execvp");
-                exit(1);
-            }
-            ASSERT_NOT_REACHED();
+    pid = fork();
+    if (!pid) {
+        if (ptrace(PT_TRACE_ME, 0, 0, 0) == -1) {
+            perror("traceme");
+            return 1;
         }
-    }
-
-    int fd = systrace(pid);
-    if (fd < 0) {
-        perror("systrace");
-        return 1;
-    }
-
-    if (pid_is_child) {
-        int rc = kill(pid, SIGCONT);
+        int rc = execvp(argv[1], &argv[1]);
         if (rc < 0) {
-            perror("kill(pid, SIGCONT)");
-            return 1;
+            perror("execvp");
+            exit(1);
         }
+        ASSERT_NOT_REACHED();
     }
 
-    for (;;) {
-        u32 call[5];
-        int nread = read(fd, &call, sizeof(call));
-        if (nread == 0)
-            break;
-        if (nread < 0) {
-            perror("read");
-            return 1;
-        }
-        ASSERT(nread == sizeof(call));
-        fprintf(stderr, "%s(%#x, %#x, %#x) = %#x\n", Syscall::to_string((Syscall::Function)call[0]), call[1], call[2], call[3], call[4]);
-    }
-
-    int rc = close(fd);
-    if (rc < 0) {
-        perror("close");
+    if (waitpid(pid, nullptr, WSTOPPED) != pid) {
+        perror("waitpid");
         return 1;
     }
+
+    if (ptrace(PT_ATTACH, pid, 0, 0) == -1) {
+        perror("attach");
+        return 1;
+    }
+    
+    if (waitpid(pid, nullptr, WSTOPPED) != pid) {
+        perror("waitpid");
+        return 1;
+    }
+
+    for(;;) {
+        if (ptrace(PT_SYSCALL, pid, 0, 0) == -1) {
+            if(errno == ESRCH)
+                return 0;
+            perror("syscall");
+            return 1;
+        }
+        if (waitpid(pid, nullptr, WSTOPPED) != pid) {
+            perror("waitpid");
+            return 1;
+        }
+
+        PtraceRegisters regs = {};
+        if (ptrace(PT_GETREGS, pid, &regs, 0) == -1) {
+            perror("getregs");
+            return 1;
+        }
+
+        fprintf(stderr, "%s\n", Syscall::to_string((Syscall::Function)regs.eax));
+
+        // skip syscall exit
+        if (ptrace(PT_SYSCALL, pid, 0, 0) == -1) {
+            if(errno == ESRCH)
+                return 0;
+            perror("syscall");
+            return 1;
+        }
+        if (waitpid(pid, nullptr, WSTOPPED) != pid) {
+            perror("waitpid");
+            return 1;
+        }
+
+    }
+
+    return 0;
 
     return 0;
 }

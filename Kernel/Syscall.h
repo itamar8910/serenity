@@ -133,7 +133,6 @@ namespace Kernel {
     __ENUMERATE_SYSCALL(donate)               \
     __ENUMERATE_SYSCALL(rename)               \
     __ENUMERATE_SYSCALL(ftruncate)            \
-    __ENUMERATE_SYSCALL(systrace)             \
     __ENUMERATE_SYSCALL(exit_thread)          \
     __ENUMERATE_SYSCALL(mknod)                \
     __ENUMERATE_SYSCALL(writev)               \

@@ -3964,13 +3964,6 @@ int Process::sys$watch_file(const char* user_path, size_t path_length)
     return fd;
 }
 
-int Process::sys$systrace(pid_t)
-{
-    REQUIRE_PROMISE(proc);
-    ASSERT_NOT_REACHED();
-    return -ENOTIMPL;
-}
-
 int Process::sys$halt()
 {
     if (!is_superuser())
