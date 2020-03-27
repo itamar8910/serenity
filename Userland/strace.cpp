@@ -96,7 +96,11 @@ int main(int argc, char** argv)
             return 1;
         }
 
-        fprintf(stderr, "%s\n", Syscall::to_string((Syscall::Function)regs.eax));
+        u32 syscall_index = regs.eax;
+        u32 arg1 = regs.edx;
+        u32 arg2 = regs.ecx;
+        u32 arg3 = regs.ebx;
+
 
         // skip syscall exit
         if (ptrace(PT_SYSCALL, pid, 0, 0) == -1) {
@@ -109,6 +113,27 @@ int main(int argc, char** argv)
             perror("waitpid");
             return 1;
         }
+
+        if (ptrace(PT_GETREGS, pid, &regs, 0) == -1) {
+            if (errno == ESRCH && syscall_index == SC_exit) {
+                regs.eax = 0;
+            } 
+            else { 
+                perror("getregs");
+                return 1;
+            }
+        }
+
+        u32 res = regs.eax;
+
+        fprintf(stderr, "%s(0x%x, 0x%x, 0x%x)\t=%d\n",
+         Syscall::to_string(
+            (Syscall::Function)syscall_index),
+            arg1,
+            arg2,
+            arg3,
+            res
+            );
 
     }
 
