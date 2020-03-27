@@ -43,22 +43,34 @@ static int usage()
     return 1;
 }
 
+static int g_pid = -1;
+
+static void handle_sigint(int)
+{
+    if(g_pid == -1)
+        return;
+
+    if (ptrace(PT_DETACH, g_pid, 0, 0) == -1) {
+        perror("detach");
+    }
+
+}
+
+
 int main(int argc, char** argv)
 {
     if (argc == 1)
         return usage();
 
-    pid_t pid = -1;
-
     if(!strcmp(argv[1], "-p"))
     {
         if (argc != 3)
             return usage();
-        pid = atoi(argv[2]);
+        g_pid = atoi(argv[2]);
     }
     else 
     {
-        pid = fork();
+        int pid = fork();
         if (!pid) {
             if (ptrace(PT_TRACE_ME, 0, 0, 0) == -1) {
                 perror("traceme");
@@ -75,32 +87,38 @@ int main(int argc, char** argv)
             perror("waitpid");
             return 1;
         }
+        g_pid = pid;
     }
 
-    if (ptrace(PT_ATTACH, pid, 0, 0) == -1) {
+    struct sigaction sa;
+    memset(&sa, 0, sizeof(struct sigaction));
+    sa.sa_handler = handle_sigint;
+    sigaction(SIGINT, &sa, nullptr);
+
+    if (ptrace(PT_ATTACH, g_pid, 0, 0) == -1) {
         perror("attach");
         return 1;
     }
     
-    if (waitpid(pid, nullptr, WSTOPPED) != pid) {
+    if (waitpid(g_pid, nullptr, WSTOPPED) != g_pid) {
         perror("waitpid");
         return 1;
     }
 
     for(;;) {
-        if (ptrace(PT_SYSCALL, pid, 0, 0) == -1) {
+        if (ptrace(PT_SYSCALL, g_pid, 0, 0) == -1) {
             if(errno == ESRCH)
                 return 0;
             perror("syscall");
             return 1;
         }
-        if (waitpid(pid, nullptr, WSTOPPED) != pid) {
-            perror("waitpid");
+        if (waitpid(g_pid, nullptr, WSTOPPED) != g_pid) {
+            perror("wait_pid");
             return 1;
         }
 
         PtraceRegisters regs = {};
-        if (ptrace(PT_GETREGS, pid, &regs, 0) == -1) {
+        if (ptrace(PT_GETREGS, g_pid, &regs, 0) == -1) {
             perror("getregs");
             return 1;
         }
@@ -112,18 +130,18 @@ int main(int argc, char** argv)
 
 
         // skip syscall exit
-        if (ptrace(PT_SYSCALL, pid, 0, 0) == -1) {
+        if (ptrace(PT_SYSCALL, g_pid, 0, 0) == -1) {
             if(errno == ESRCH)
                 return 0;
             perror("syscall");
             return 1;
         }
-        if (waitpid(pid, nullptr, WSTOPPED) != pid) {
-            perror("waitpid");
+        if (waitpid(g_pid, nullptr, WSTOPPED) != g_pid) {
+            perror("wait_pid");
             return 1;
         }
 
-        if (ptrace(PT_GETREGS, pid, &regs, 0) == -1) {
+        if (ptrace(PT_GETREGS, g_pid, &regs, 0) == -1) {
             if (errno == ESRCH && syscall_index == SC_exit) {
                 regs.eax = 0;
             } 
