@@ -4864,6 +4864,7 @@ int Process::sys$get_stack_bounds(FlatPtr* user_stack_base, size_t* user_stack_s
 
 int Process::sys$ptrace(const Syscall::SC_ptrace_params* user_params)
 {
+    REQUIRE_PROMISE(proc);
     Syscall::SC_ptrace_params params;
     if (!validate_read_and_copy_typed(&params, user_params))
         return -EFAULT;
@@ -4884,7 +4885,6 @@ int Process::sys$ptrace(const Syscall::SC_ptrace_params* user_params)
     if (!peer)
         return -ESRCH;
 
-    // FIXME: does this deal with setuid processes correctly?
     if (peer->process().uid() != m_euid)
         return -EACCES;
     
@@ -4940,7 +4940,6 @@ int Process::sys$ptrace(const Syscall::SC_ptrace_params* user_params)
         default:
             return -EINVAL; 
     }
-
 
     return 0;
 }
