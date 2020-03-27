@@ -4944,4 +4944,19 @@ int Process::sys$ptrace(const Syscall::SC_ptrace_params* user_params)
     return 0;
 }
 
+bool Process::has_tracee_thread(int tracer_pid) const
+{
+    bool has_tracee = false;
+
+    for_each_thread([&](Thread& t) {
+        if(t.tracer() && t.tracer()->tracer_pid() == tracer_pid)
+        {
+            has_tracee = true;
+            return IterationDecision::Break;
+        }
+        return IterationDecision::Continue;
+    });
+    return has_tracee;
+}
+
 }

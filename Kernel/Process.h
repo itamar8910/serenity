@@ -439,6 +439,8 @@ private:
     KResultOr<String> get_syscall_path_argument(const char* user_path, size_t path_length) const;
     KResultOr<String> get_syscall_path_argument(const Syscall::StringArgument&) const;
 
+    bool has_tracee_thread(int tracer_pid) const;
+
     RefPtr<PageDirectory> m_page_directory;
 
     Process* m_prev { nullptr };
@@ -584,7 +586,7 @@ inline void Process::for_each_child(Callback callback)
     pid_t my_pid = pid();
     for (auto* process = g_processes->head(); process;) {
         auto* next_process = process->next();
-        if (process->ppid() == my_pid) {
+        if (process->ppid() == my_pid || process->has_tracee_thread(m_pid)) {
             if (callback(*process) == IterationDecision::Break)
                 break;
         }
