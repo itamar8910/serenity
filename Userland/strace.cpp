@@ -26,6 +26,7 @@
 
 #include <AK/Assertions.h>
 #include <AK/Types.h>
+#include <AK/LogStream.h>
 #include <Kernel/Syscall.h>
 #include <signal.h>
 #include <stdio.h>
@@ -38,8 +39,8 @@
 
 static int usage()
 {
-    printf("usage: strace [command...]\n");
-    return 0;
+    printf("usage: strace [-p pid] [command...]\n");
+    return 1;
 }
 
 int main(int argc, char** argv)
@@ -49,23 +50,31 @@ int main(int argc, char** argv)
 
     pid_t pid = -1;
 
-    pid = fork();
-    if (!pid) {
-        if (ptrace(PT_TRACE_ME, 0, 0, 0) == -1) {
-            perror("traceme");
+    if(!strcmp(argv[1], "-p"))
+    {
+        if (argc != 3)
+            return usage();
+        pid = atoi(argv[2]);
+    }
+    else 
+    {
+        pid = fork();
+        if (!pid) {
+            if (ptrace(PT_TRACE_ME, 0, 0, 0) == -1) {
+                perror("traceme");
+                return 1;
+            }
+            int rc = execvp(argv[1], &argv[1]);
+            if (rc < 0) {
+                perror("execvp");
+                exit(1);
+            }
+            ASSERT_NOT_REACHED();
+        }
+        if (waitpid(pid, nullptr, WSTOPPED) != pid) {
+            perror("waitpid");
             return 1;
         }
-        int rc = execvp(argv[1], &argv[1]);
-        if (rc < 0) {
-            perror("execvp");
-            exit(1);
-        }
-        ASSERT_NOT_REACHED();
-    }
-
-    if (waitpid(pid, nullptr, WSTOPPED) != pid) {
-        perror("waitpid");
-        return 1;
     }
 
     if (ptrace(PT_ATTACH, pid, 0, 0) == -1) {
