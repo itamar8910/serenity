@@ -122,16 +122,17 @@ int handle(RegisterState& regs, u32 function, u32 arg1, u32 arg2, u32 arg3)
 
 void syscall_handler(RegisterState& regs)
 {
-    if (Thread::current->tracer() && Thread::current->tracer()->trace_syscalls()) {
-        Thread::current->tracer()->set_trace_syscalls(false);
-        Thread::current->tracer_trap(regs);
-    }
     // Special handling of the "gettid" syscall since it's extremely hot.
     // FIXME: Remove this hack once userspace locks stop calling it so damn much.
     if (regs.eax == SC_gettid) {
         regs.eax = Process::current->sys$gettid();
         Thread::current->did_syscall();
         return;
+    }
+
+    if (Thread::current->tracer() && Thread::current->tracer()->trace_syscalls()) {
+        Thread::current->tracer()->set_trace_syscalls(false);
+        Thread::current->tracer_trap(regs);
     }
 
     // Make sure SMAP protection is enabled on syscall entry.
