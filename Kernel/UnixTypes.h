@@ -550,3 +550,4 @@ struct rtentry {
 #define PT_CONTINUE 3
 #define PT_SYSCALL 4
 #define PT_GETREGS 5
+#define PT_DETACH 6

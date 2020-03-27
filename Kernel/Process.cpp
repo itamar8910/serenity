@@ -4915,6 +4915,11 @@ int Process::sys$ptrace(const Syscall::SC_ptrace_params* user_params)
         case PT_CONTINUE:
             peer->send_signal(SIGCONT, this);
             break;
+            
+        case PT_DETACH:
+            peer->clear_tracer();
+            peer->send_signal(SIGCONT, this);
+            break;
 
         case PT_SYSCALL:
             tracer->set_trace_syscalls(true);

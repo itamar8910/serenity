@@ -922,7 +922,12 @@ void Thread::reset_fpu_state()
 
 void Thread::set_tracer(pid_t tracer)
 {
-     m_tracer = ThreadTracer::create(tracer);
+    m_tracer = ThreadTracer::create(tracer);
+}
+
+void Thread::clear_tracer()
+{
+    m_tracer = nullptr;
 }
 
 void Thread::tracer_trap(const RegisterState& regs)

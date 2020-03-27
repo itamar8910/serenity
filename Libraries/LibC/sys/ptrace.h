@@ -35,6 +35,7 @@ __BEGIN_DECLS
 #define PT_CONTINUE 3
 #define PT_SYSCALL 4
 #define PT_GETREGS 5
+#define PT_DETACH 6
 
 int ptrace(int request, pid_t pid, void* addr, int data);
 

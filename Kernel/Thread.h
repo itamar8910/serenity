@@ -436,6 +436,7 @@ public:
     
     ThreadTracer* tracer() { return m_tracer.ptr(); }
     void set_tracer(pid_t tracer);
+    void clear_tracer();
     void tracer_trap(const RegisterState&);
 
 private:
