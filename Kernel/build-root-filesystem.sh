@@ -142,6 +142,7 @@ cp ../Applications/DisplayProperties/DisplayProperties mnt/bin/DisplayProperties
 cp ../Applications/Welcome/Welcome mnt/bin/Welcome
 cp ../Applications/Help/Help mnt/bin/Help
 cp ../Applications/Browser/Browser mnt/bin/Browser
+cp ../Applications/Debugger/Debugger mnt/bin/sdb
 cp ../Games/Solitaire/Solitaire mnt/bin/Solitaire
 cp ../Demos/HelloWorld/HelloWorld mnt/bin/HelloWorld
 cp ../Demos/Debugee/Debugee mnt/bin/Debugee

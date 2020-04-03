@@ -301,7 +301,11 @@ EH_ENTRY_NO_CODE(3, breakpoint);
 void breakpoint_handler(RegisterState regs)
 {
     clac();
-    handle_crash(regs, "Breakpoint", SIGTRAP);
+    (void)regs;
+    if (Thread::current->tracer()) {
+        Thread::current->tracer()->set_regs(regs);
+    }
+    Thread::current->send_urgent_signal_to_self(SIGTRAP);
 }
 
 #define EH(i, msg)                                                                                                                                                             \

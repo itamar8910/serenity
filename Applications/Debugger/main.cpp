@@ -24,37 +24,9 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <AK/Memory.h>
-#include <AK/kmalloc.h>
-#include <Kernel/ThreadTracer.h>
+#include <stdio.h>
 
-namespace Kernel {
-
-ThreadTracer::ThreadTracer(pid_t tracer_pid)
-    : m_tracer_pid(tracer_pid)
+int main(int, char**)
 {
-}
-
-void ThreadTracer::set_regs(const RegisterState& regs)
-{
-    PtraceRegisters r = {
-        regs.eax,
-        regs.ecx,
-        regs.edx,
-        regs.ebx,
-        regs.esp,
-        regs.ebp,
-        regs.esi,
-        regs.edi,
-        regs.eip,
-        regs.eflags,
-        regs.cs,
-        regs.ss,
-        regs.ds,
-        regs.es,
-        regs.fs,
-        regs.gs,
-    };
-    m_regs = r;
-}
+    printf("debugger\n");
 }
