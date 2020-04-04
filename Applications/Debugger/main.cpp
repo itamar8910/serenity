@@ -73,11 +73,36 @@ void run_child_and_attach(char** argv)
         ASSERT_NOT_REACHED();
     }
 
+    g_pid = pid;
+
     if (waitpid(pid, nullptr, WSTOPPED) != pid) {
         perror("waitpid");
         exit(1);
     }
-    g_pid = pid;
+
+    if (ptrace(PT_ATTACH, g_pid, 0, 0) == -1) {
+        perror("attach");
+        exit(1);
+    }
+
+    if (waitpid(g_pid, nullptr, WSTOPPED) != g_pid) {
+        perror("waitpid");
+        exit(1);
+    }
+
+    // we want to continue until the exit from the 'execve' sycsall
+    // we do this to ensure that when we start debugging the process,
+    // it executes the target image, and not the forked image of the debugger
+    // NOTE: we only need to do this when we are debugging a new process (i.e not attaching to a process that's already running!)
+    if (ptrace(PT_SYSCALL, g_pid, 0, 0) == -1) {
+        perror("syscall");
+        exit(1);
+    }
+
+    if (waitpid(g_pid, nullptr, WSTOPPED) != g_pid) {
+        perror("wait_pid");
+        exit(1);
+    }
 }
 
 VirtualAddress get_entry_point(int pid)
@@ -100,24 +125,16 @@ int main(int argc, char** argv)
     if (argc == 1)
         return usage();
 
-    run_child_and_attach(argv);
-
-    auto entry_point = get_entry_point(g_pid);
-    dbg() << "entry point:" << entry_point;
-
     struct sigaction sa;
     memset(&sa, 0, sizeof(struct sigaction));
     sa.sa_handler = handle_sigint;
     sigaction(SIGINT, &sa, nullptr);
 
-    if (ptrace(PT_ATTACH, g_pid, 0, 0) == -1) {
-        perror("attach");
-        return 1;
-    }
-    if (waitpid(g_pid, nullptr, WSTOPPED) != g_pid) {
-        perror("waitpid");
-        return 1;
-    }
+    run_child_and_attach(argv);
+
+    dbg() << "pid:" << g_pid;
+    auto entry_point = get_entry_point(g_pid);
+    dbg() << "entry point:" << entry_point;
 
     if (ptrace(PT_CONTINUE, g_pid, 0, 0) == -1) {
         perror("continue");
