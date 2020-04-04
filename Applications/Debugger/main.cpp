@@ -25,7 +25,10 @@
  */
 
 #include <AK/Assertions.h>
+#include <AK/ByteBuffer.h>
 #include <LibC/sys/arch/i386/regs.h>
+#include <LibCore/File.h>
+#include <LibELF/ELFImage.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -77,12 +80,30 @@ void run_child_and_attach(char** argv)
     g_pid = pid;
 }
 
+VirtualAddress get_entry_point(int pid)
+{
+    auto path = String::format("/proc/%d/exe", pid);
+    dbg() << "path: " << path;
+    auto file = Core::File::construct(path);
+    if (!file->open(Core::File::ReadOnly)) {
+        fprintf(stderr, "Failed to open Debugged executable");
+        exit(1);
+    }
+    auto data = file->read_all();
+    dbg() << "data size:" << data.size();
+    ELFImage elf(data.data(), data.size());
+    return elf.entry();
+}
+
 int main(int argc, char** argv)
 {
     if (argc == 1)
         return usage();
 
     run_child_and_attach(argv);
+
+    auto entry_point = get_entry_point(g_pid);
+    dbg() << "entry point:" << entry_point;
 
     struct sigaction sa;
     memset(&sa, 0, sizeof(struct sigaction));
@@ -108,13 +129,14 @@ int main(int argc, char** argv)
         return 1;
     }
 
+    printf("hit breakpoint\n");
+
     PtraceRegisters regs;
     if (ptrace(PT_GETREGS, g_pid, &regs, 0) == -1) {
         perror("getregs");
         return 1;
     }
 
-    printf("hit breakpoint\n");
     printf("eip:0x%x\n", regs.eip);
 
     uint32_t data = ptrace(PT_PEEK, g_pid, (void*)regs.eip, 0);
