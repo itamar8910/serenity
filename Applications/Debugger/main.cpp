@@ -122,6 +122,8 @@ VirtualAddress get_entry_point(int pid)
 
 int main(int argc, char** argv)
 {
+    // TODO: pledge & unveil
+    // TOOD: check that we didn't somehow hurt performance. boot seems slower? (or it's just laptop battey)
     if (argc == 1)
         return usage();
 
