@@ -53,8 +53,8 @@ String AESCipherBlock::to_string() const
 String AESCipherKey::to_string() const
 {
     StringBuilder builder;
-    for (size_t i = 0; i < rounds() * 4; ++i)
-        builder.appendf("%x", m_rd_keys[i]);
+    for (size_t i = 0; i < (rounds() + 1) * 4; ++i)
+        builder.appendf("%02x", m_rd_keys[i]);
     return builder.build();
 }
 
@@ -153,10 +153,10 @@ void AESCipherKey::expand_encrypt_key(const StringView& user_key, size_t bits)
             temp = round_key[11];
             // clang-format off
             round_key[12] = round_key[4] ^
-                    (Tables::Encode2[(temp >> 16) & 0xff] & 0xff000000) ^
-                    (Tables::Encode3[(temp >>  8) & 0xff] & 0x00ff0000) ^
-                    (Tables::Encode0[(temp      ) & 0xff] & 0x0000ff00) ^
-                    (Tables::Encode1[(temp >> 24)       ] & 0x000000ff) ;
+                    (Tables::Encode2[(temp >> 24)       ] & 0xff000000) ^
+                    (Tables::Encode3[(temp >> 16) & 0xff] & 0x00ff0000) ^
+                    (Tables::Encode0[(temp >>  8) & 0xff] & 0x0000ff00) ^
+                    (Tables::Encode1[(temp      ) & 0xff] & 0x000000ff) ;
             // clang-format on
             round_key[13] = round_key[5] ^ round_key[12];
             round_key[14] = round_key[6] ^ round_key[13];
