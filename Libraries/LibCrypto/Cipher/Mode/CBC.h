@@ -52,7 +52,7 @@ public:
         ASSERT(ivec.has_value());
         const auto* iv = ivec.value().data();
 
-        typename T::BlockType block {};
+        typename T::BlockType block { cipher.padding_mode() };
         size_t offset { 0 };
         auto block_size = cipher.block_size();
 
@@ -93,7 +93,7 @@ public:
         // FIXME (ponder): Should we simply decrypt as much as we can?
         ASSERT(length % block_size == 0);
 
-        typename T::BlockType block {};
+        typename T::BlockType block { cipher.padding_mode() };
         size_t offset { 0 };
 
         while (length > 0) {
@@ -107,6 +107,7 @@ public:
             length -= block_size;
             offset += block_size;
         }
+        this->prune_padding(out);
     }
 };
 

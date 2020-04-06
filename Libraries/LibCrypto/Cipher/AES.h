@@ -34,12 +34,13 @@
 namespace Crypto {
 struct AESCipherBlock : public CipherBlock {
 public:
-    AESCipherBlock()
+    explicit AESCipherBlock(PaddingMode mode = PaddingMode::CMS)
+        : CipherBlock(mode)
     {
         m_data = ByteBuffer::create_zeroed(BLOCK_SIZE / 8);
     }
-    AESCipherBlock(const u8* data, size_t length)
-        : AESCipherBlock()
+    AESCipherBlock(const u8* data, size_t length, PaddingMode mode = PaddingMode::CMS)
+        : AESCipherBlock(mode)
     {
         overwrite(data, length);
     }
@@ -106,8 +107,9 @@ class AESCipher final : public Cipher<AESCipherKey, AESCipherBlock> {
 public:
     using CBCMode = CBC<AESCipher>;
 
-    AESCipher(const StringView& user_key, size_t key_bits, Intent intent = Intent::Encryption)
-        : m_key(user_key, key_bits, intent)
+    AESCipher(const StringView& user_key, size_t key_bits, Intent intent = Intent::Encryption, PaddingMode mode = PaddingMode::CMS)
+        : Cipher<AESCipherKey, AESCipherBlock>(mode)
+        , m_key(user_key, key_bits, intent)
     {
     }
 

@@ -403,7 +403,19 @@ void AESCipherBlock::overwrite(const u8* data, size_t length)
 {
     ASSERT(length <= m_data.size());
     m_data.overwrite(0, data, length);
-    if (length < m_data.size())
-        __builtin_memset(m_data.data() + length, 0, m_data.size() - length);
+    if (length < m_data.size()) {
+        switch (padding_mode()) {
+        default:
+            // FIXME: We should handle the rest of the common padding modes
+        case PaddingMode::Null:
+            // fill with zeros
+            __builtin_memset(m_data.data() + length, 0, m_data.size() - length);
+            break;
+        case PaddingMode::CMS:
+            // fill with the length of the padding bytes
+            __builtin_memset(m_data.data() + length, m_data.size() - length, m_data.size() - length);
+            break;
+        }
+    }
 }
 }

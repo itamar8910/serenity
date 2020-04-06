@@ -38,11 +38,26 @@ enum class Intent {
     Decryption,
 };
 
+enum class PaddingMode {
+    CMS, // RFC 1423
+    Null,
+    // FIXME: We do not implement these yet
+    Bit,
+    Random,
+    Space,
+    ZeroLength,
+};
+
 template <typename B, typename T>
 class Cipher;
 
 struct CipherBlock {
 public:
+    explicit CipherBlock(PaddingMode mode)
+        : m_padding_mode(mode)
+    {
+    }
+
     static size_t block_size() { ASSERT_NOT_REACHED(); }
 
     virtual ByteBuffer get() const = 0;
@@ -52,6 +67,8 @@ public:
     virtual void overwrite(const u8*, size_t) = 0;
 
     virtual void apply_initialization_vector(const u8* ivec) = 0;
+
+    PaddingMode padding_mode() const { return m_padding_mode; }
 
     template <typename T>
     void put(size_t offset, T value)
@@ -76,6 +93,7 @@ public:
 
 private:
     virtual ByteBuffer& data() = 0;
+    PaddingMode m_padding_mode;
 };
 
 struct CipherKey {
@@ -96,12 +114,22 @@ public:
     using KeyType = KeyT;
     using BlockType = BlockT;
 
+    explicit Cipher<KeyT, BlockT>(PaddingMode mode)
+        : m_padding_mode(mode)
+    {
+    }
+
     virtual const KeyType& key() const = 0;
     virtual KeyType& key() = 0;
 
     static size_t block_size() { return BlockType::block_size(); }
 
+    PaddingMode padding_mode() const { return m_padding_mode; }
+
     virtual void encrypt_block(const BlockType& in, BlockType& out) = 0;
     virtual void decrypt_block(const BlockType& in, BlockType& out) = 0;
+
+private:
+    PaddingMode m_padding_mode;
 };
 }

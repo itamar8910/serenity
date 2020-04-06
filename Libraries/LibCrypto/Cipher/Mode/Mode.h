@@ -52,6 +52,38 @@ public:
 protected:
     T& cipher() { return m_cipher; }
 
+    virtual void prune_padding(ByteBuffer& data)
+    {
+        auto size = data.size();
+        switch (m_cipher.padding_mode()) {
+        case PaddingMode::CMS: {
+            auto maybe_padding_length = data[size - 1];
+            if (maybe_padding_length >= T::block_size()) {
+                // cannot be padding (the entire block cannot be padding)
+                return;
+            }
+            for (auto i = maybe_padding_length; i > 0; --i) {
+                if (data[size - i] != maybe_padding_length) {
+                    // not padding, part of data
+                    return;
+                }
+            }
+            data.trim(size - maybe_padding_length);
+            break;
+        }
+        case PaddingMode::Null: {
+            while (data[size - 1] == 0)
+                --size;
+            data.trim(size);
+            break;
+        }
+        default:
+            // FIXME: support other padding modes
+            ASSERT_NOT_REACHED();
+            break;
+        }
+    }
+
     // FIXME: Somehow add a reference version of this
     template <typename... Args>
     Mode(Args... args)
@@ -62,5 +94,4 @@ protected:
 private:
     T m_cipher;
 };
-
 }
