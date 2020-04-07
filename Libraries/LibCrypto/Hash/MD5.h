@@ -44,7 +44,7 @@ namespace Hash {
 
     }
 
-    class MD5 final : public HashFunction<16, MD5Digest> {
+    class MD5 final : public HashFunction<512, MD5Digest> {
     public:
         MD5()
         {

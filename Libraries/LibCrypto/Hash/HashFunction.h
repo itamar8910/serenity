@@ -36,11 +36,13 @@ namespace Hash {
     template <int BlockS, typename DigestT>
     class HashFunction {
     public:
-        static constexpr auto BlockSize = BlockS;
+        static constexpr auto BlockSize = BlockS / 8;
+        static constexpr auto DigestSize = sizeof(DigestT);
+
         using DigestType = DigestT;
 
         static size_t block_size() { return BlockSize; };
-        static size_t digest_size() { return sizeof(DigestType); };
+        static size_t digest_size() { return DigestSize; };
 
         virtual void update(const u8*, size_t) = 0;
         virtual void update(const ByteBuffer& buffer) = 0;

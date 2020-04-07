@@ -28,7 +28,6 @@
 
 #include <AK/ByteBuffer.h>
 #include <AK/Optional.h>
-#include <AK/RefPtr.h>
 #include <AK/Types.h>
 
 namespace Crypto {

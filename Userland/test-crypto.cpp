@@ -92,9 +92,19 @@ void md5(const char* message, size_t len)
 {
     auto digest = Crypto::Hash::MD5::hash((const u8*)message, len);
     if (binary)
-        printf("%.*s", (int)Crypto::Hash::MD5::block_size(), digest.data);
+        printf("%.*s", (int)Crypto::Hash::MD5::digest_size(), digest.data);
     else
-        print_buffer(ByteBuffer::wrap(digest.data, Crypto::Hash::MD5::block_size()), Crypto::Hash::MD5::block_size());
+        print_buffer(ByteBuffer::wrap(digest.data, Crypto::Hash::MD5::digest_size()), -1);
+}
+
+void hmac_md5(const char* message, size_t len)
+{
+    Crypto::Authentication::HMAC<Crypto::Hash::MD5> hmac(secret_key);
+    auto mac = hmac.process((const u8*)message, len);
+    if (binary)
+        printf("%.*s", (int)hmac.DigestSize, mac.data);
+    else
+        print_buffer(ByteBuffer::wrap(mac.data, hmac.DigestSize), -1);
 }
 
 auto main(int argc, char** argv) -> int
@@ -103,7 +113,7 @@ auto main(int argc, char** argv) -> int
     Core::ArgsParser parser;
     parser.add_positional_argument(mode, "mode to operate in ('list' to see modes and descriptions)", "mode");
 
-    parser.add_option(secret_key, "Set the secret key (must be key-bits bits)", "secret-key", 'k', "secret key");
+    parser.add_option(secret_key, "Set the secret key", "secret-key", 'k', "secret key");
     parser.add_option(key_bits, "Size of the key", "key-bits", 'b', "key-bits");
     parser.add_option(filename, "Read from file", "file", 'f', "from file");
     parser.add_option(binary, "Force binary output", "force-binary", 0);
@@ -313,9 +323,9 @@ void md5_test_hash()
         };
         auto digest = Crypto::Hash::MD5::hash("Well hello friends");
 
-        if (memcmp(result, digest.data, Crypto::Hash::MD5::block_size()) != 0) {
+        if (memcmp(result, digest.data, Crypto::Hash::MD5::digest_size()) != 0) {
             FAIL(Invalid hash);
-            print_buffer(ByteBuffer::wrap(digest.data, Crypto::Hash::MD5::block_size()), -1);
+            print_buffer(ByteBuffer::wrap(digest.data, Crypto::Hash::MD5::digest_size()), -1);
         } else {
             PASS;
         }
@@ -328,9 +338,9 @@ void md5_test_hash()
         };
         auto digest = Crypto::Hash::MD5::hash("");
 
-        if (memcmp(result, digest.data, Crypto::Hash::MD5::block_size()) != 0) {
+        if (memcmp(result, digest.data, Crypto::Hash::MD5::digest_size()) != 0) {
             FAIL(Invalid hash);
-            print_buffer(ByteBuffer::wrap(digest.data, Crypto::Hash::MD5::block_size()), -1);
+            print_buffer(ByteBuffer::wrap(digest.data, Crypto::Hash::MD5::digest_size()), -1);
         } else {
             PASS;
         }
@@ -342,9 +352,9 @@ void md5_test_hash()
         };
         auto digest = Crypto::Hash::MD5::hash("a");
 
-        if (memcmp(result, digest.data, Crypto::Hash::MD5::block_size()) != 0) {
+        if (memcmp(result, digest.data, Crypto::Hash::MD5::digest_size()) != 0) {
             FAIL(Invalid hash);
-            print_buffer(ByteBuffer::wrap(digest.data, Crypto::Hash::MD5::block_size()), -1);
+            print_buffer(ByteBuffer::wrap(digest.data, Crypto::Hash::MD5::digest_size()), -1);
         } else {
             PASS;
         }
@@ -356,9 +366,9 @@ void md5_test_hash()
         };
         auto digest = Crypto::Hash::MD5::hash("abcdefghijklmnopqrstuvwxyz");
 
-        if (memcmp(result, digest.data, Crypto::Hash::MD5::block_size()) != 0) {
+        if (memcmp(result, digest.data, Crypto::Hash::MD5::digest_size()) != 0) {
             FAIL(Invalid hash);
-            print_buffer(ByteBuffer::wrap(digest.data, Crypto::Hash::MD5::block_size()), -1);
+            print_buffer(ByteBuffer::wrap(digest.data, Crypto::Hash::MD5::digest_size()), -1);
         } else {
             PASS;
         }
@@ -370,9 +380,9 @@ void md5_test_hash()
         };
         auto digest = Crypto::Hash::MD5::hash("12345678901234567890123456789012345678901234567890123456789012345678901234567890");
 
-        if (memcmp(result, digest.data, Crypto::Hash::MD5::block_size()) != 0) {
+        if (memcmp(result, digest.data, Crypto::Hash::MD5::digest_size()) != 0) {
             FAIL(Invalid hash);
-            print_buffer(ByteBuffer::wrap(digest.data, Crypto::Hash::MD5::block_size()), -1);
+            print_buffer(ByteBuffer::wrap(digest.data, Crypto::Hash::MD5::digest_size()), -1);
         } else {
             PASS;
         }
@@ -393,7 +403,7 @@ void md5_test_consecutive_updates()
         md5.update("friends");
         auto digest = md5.digest();
 
-        if (memcmp(result, digest.data, Crypto::Hash::MD5::block_size()) != 0)
+        if (memcmp(result, digest.data, Crypto::Hash::MD5::digest_size()) != 0)
             FAIL(Invalid hash);
         else
             PASS;
