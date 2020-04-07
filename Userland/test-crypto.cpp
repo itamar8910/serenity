@@ -129,7 +129,7 @@ auto main(int argc, char** argv) -> int
 
     StringView mode_sv { mode };
     if (mode_sv == "list") {
-        puts("Crypt modes");
+        puts("test-crypto modes");
         puts("\tdigest - Access digest (authentication) functions");
         puts("\thash - Access hash functions");
         puts("\tencrypt -- Access encryption functions");
@@ -206,16 +206,20 @@ ByteBuffer operator""_b(const char* string, size_t length)
 
 // tests go after here
 // please be reasonable with orders kthx
+void aes_cbc_test_name();
 void aes_cbc_test_encrypt();
 void aes_cbc_test_decrypt();
 
+void md5_test_name();
 void md5_test_hash();
 void md5_test_consecutive_updates();
 
+void hmac_md5_test_name();
 void hmac_md5_test_process();
 
 int aes_cbc_tests()
 {
+    aes_cbc_test_name();
     if (encrypting) {
         aes_cbc_test_encrypt();
     } else {
@@ -223,6 +227,16 @@ int aes_cbc_tests()
     }
 
     return 0;
+}
+
+void aes_cbc_test_name()
+{
+    I_TEST((AES CBC class name));
+    Crypto::Cipher::AESCipher::CBCMode cipher("WellHelloFriends", 128, Crypto::Cipher::Intent::Encryption);
+    if (cipher.class_name() != "AES_CBC")
+        FAIL(Invalid class name);
+    else
+        PASS;
 }
 
 void aes_cbc_test_encrypt()
@@ -330,9 +344,20 @@ void aes_cbc_test_decrypt()
 
 int md5_tests()
 {
+    md5_test_name();
     md5_test_hash();
     md5_test_consecutive_updates();
     return 0;
+}
+
+void md5_test_name()
+{
+    I_TEST((MD5 class name));
+    Crypto::Hash::MD5 md5;
+    if (md5.class_name() != "MD5")
+        FAIL(Invalid class name);
+    else
+        PASS;
 }
 
 void md5_test_hash()
@@ -452,8 +477,19 @@ void md5_test_consecutive_updates()
 
 int hmac_md5_tests()
 {
+    hmac_md5_test_name();
     hmac_md5_test_process();
     return 0;
+}
+
+void hmac_md5_test_name()
+{
+    I_TEST((HMAC - MD5 | Class name));
+    Crypto::Authentication::HMAC<Crypto::Hash::MD5> hmac("Well Hello Friends");
+    if (hmac.class_name() != "HMAC-MD5")
+        FAIL(Invalid class name);
+    else
+        PASS;
 }
 
 void hmac_md5_test_process()

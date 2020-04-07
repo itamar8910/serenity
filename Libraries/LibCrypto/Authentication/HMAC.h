@@ -27,6 +27,8 @@
 #pragma once
 
 #include <AK/ByteBuffer.h>
+#include <AK/String.h>
+#include <AK/StringBuilder.h>
 #include <AK/StringView.h>
 #include <AK/Types.h>
 #include <AK/Vector.h>
@@ -64,6 +66,14 @@ namespace Authentication {
 
         TagType process(const ByteBuffer& buffer) { return process(buffer.data(), buffer.size()); }
         TagType process(const StringView& string) { return process((const u8*)string.characters_without_null_termination(), string.length()); }
+
+        String class_name() const
+        {
+            StringBuilder builder;
+            builder.append("HMAC-");
+            builder.append(m_hasher.class_name());
+            return builder.build();
+        }
 
     private:
         void derive_key(const u8* key, size_t length)
