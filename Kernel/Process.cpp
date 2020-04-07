@@ -1512,7 +1512,6 @@ void Process::crash(int signal, u32 eip)
         dbg() << "\033[31;1m" << String::format("%p", eip) << "  (?)\033[0m\n";
     }
     dump_backtrace();
-
     m_termination_signal = signal;
     dump_regions();
     ASSERT(is_ring3());
@@ -4835,11 +4834,14 @@ void Process::set_tty(TTY* tty)
     m_tty = tty;
 }
 
-OwnPtr<Process::ELFBundle> Process::elf_bundle() const
+OwnPtr<Process::ELFBundle> Process::elf_bundle()
 {
     if (!m_executable)
         return nullptr;
     auto bundle = make<ELFBundle>();
+    if (!m_executable->inode().shared_vmobject()) {
+        return nullptr;
+    }
     ASSERT(m_executable->inode().shared_vmobject());
     auto& vmobject = *m_executable->inode().shared_vmobject();
     bundle->region = MM.allocate_kernel_region_with_vmobject(const_cast<SharedInodeVMObject&>(vmobject), vmobject.size(), "ELF bundle", Region::Access::Read);
@@ -4950,6 +4952,32 @@ int Process::sys$ptrace(const Syscall::SC_ptrace_params* user_params)
         break;
     }
 
+    case PT_SETREGS: {
+        if (!tracer->has_regs())
+            return -EINVAL;
+
+        if (!validate_read(params.addr, sizeof(PtraceRegisters)))
+            return -EFAULT;
+
+        {
+            SmapDisabler disabler;
+            PtraceRegisters* regs = reinterpret_cast<PtraceRegisters*>(params.addr);
+            // FIXME: i'm not sure that we actually want to touch the tss
+            // the tss is currently in kernel state
+            // perhaps we should touch the userspace stack? (which the usermode registers should be stored in?)
+            // if we do so, make sure to switch to the peer process' memory scope
+            dbg() << "esp0:" << (void*)peer->tss().esp0;
+            dbg() << "esp:" << (void*)peer->tss().esp;
+            dbg() << "cs:" << peer->tss().cs;
+            hang();
+            // peer->tss().eip = regs->eip;
+            // TODO: I think that tss().esp0 is the kernel stack,
+            // that userspace regs should be inside it
+            // TODO: set the rest of the registers
+            break;
+        }
+    }
+
     case PT_PEEK: {
         uint32_t* addr = reinterpret_cast<uint32_t*>(params.addr);
         if (!MM.validate_user_read(peer->process(), VirtualAddress(addr), sizeof(uint32_t))) {
@@ -4985,8 +5013,10 @@ int Process::sys$ptrace(const Syscall::SC_ptrace_params* user_params)
         }
         const bool was_writable = region->is_writable();
         if (!was_writable) //TODO refactor into scopeguard
+        {
             region->set_writable(true);
-        region->remap();
+            region->remap();
+        }
 
         {
             SmapDisabler dis;

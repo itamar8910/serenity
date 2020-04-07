@@ -38,6 +38,7 @@ __BEGIN_DECLS
 #define PT_DETACH 6
 #define PT_PEEK 7
 #define PT_POKE 8
+#define PT_SETREGS 9
 
 int ptrace(int request, pid_t pid, void* addr, int data);
 

@@ -389,7 +389,7 @@ public:
         OwnPtr<Region> region;
         OwnPtr<ELFLoader> elf_loader;
     };
-    OwnPtr<ELFBundle> elf_bundle() const;
+    OwnPtr<ELFBundle> elf_bundle();
 
     int icon_id() const { return m_icon_id; }
 
