@@ -31,21 +31,22 @@
 #include <AK/Types.h>
 
 namespace Crypto {
+namespace Hash {
 
-template <int BlockS, typename DigestT>
-class HashFunction {
-public:
-    static constexpr auto BlockSize = BlockS;
-    using DigestType = DigestT;
+    template <int BlockS, typename DigestT>
+    class HashFunction {
+    public:
+        static constexpr auto BlockSize = BlockS;
+        using DigestType = DigestT;
 
-    static size_t block_size() { return BlockSize; };
-    static size_t digest_size() { return sizeof(DigestType); };
+        static size_t block_size() { return BlockSize; };
+        static size_t digest_size() { return sizeof(DigestType); };
 
-    virtual void update(const u8*, size_t) = 0;
-    virtual void update(const ByteBuffer& buffer) = 0;
-    virtual void update(const StringView& string) = 0;
+        virtual void update(const u8*, size_t) = 0;
+        virtual void update(const ByteBuffer& buffer) = 0;
+        virtual void update(const StringView& string) = 0;
 
-    virtual DigestType digest() = 0;
-};
-
+        virtual DigestType digest() = 0;
+    };
+}
 }
