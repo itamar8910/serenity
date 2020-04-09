@@ -4962,18 +4962,8 @@ int Process::sys$ptrace(const Syscall::SC_ptrace_params* user_params)
         {
             SmapDisabler disabler;
             PtraceRegisters* regs = reinterpret_cast<PtraceRegisters*>(params.addr);
-            // FIXME: i'm not sure that we actually want to touch the tss
-            // the tss is currently in kernel state
-            // perhaps we should touch the userspace stack? (which the usermode registers should be stored in?)
-            // if we do so, make sure to switch to the peer process' memory scope
-            dbg() << "esp0:" << (void*)peer->tss().esp0;
-            dbg() << "esp:" << (void*)peer->tss().esp;
-            dbg() << "cs:" << peer->tss().cs;
-            hang();
-            // peer->tss().eip = regs->eip;
-            // TODO: I think that tss().esp0 is the kernel stack,
-            // that userspace regs should be inside it
-            // TODO: set the rest of the registers
+            RegisterState* peer_saved_registers = reinterpret_cast<RegisterState*>(peer->kernel_stack_top() - sizeof(RegisterState));
+            peer_saved_registers->eip = regs->eip;
             break;
         }
     }
