@@ -99,12 +99,24 @@ KResultOr<u32> handle_syscall(const Kernel::Syscall::SC_ptrace_params& params, P
     }
 
     case PT_PEEK: {
-        u32* addr = reinterpret_cast<u32*>(params.addr);
-        return peer->process().peek_user_data(addr);
+        Kernel::Syscall::SC_ptrace_peek_params peek_params;
+        if (!caller.validate_read_and_copy_typed(&peek_params, reinterpret_cast<Kernel::Syscall::SC_ptrace_peek_params*>(params.addr)))
+            return -EFAULT;
+        // read validation is done inside 'peek_user_data'
+        auto result = peer->process().peek_user_data(peek_params.address);
+        if (result.is_error())
+            return -EFAULT;
+        peer->process().validate_write(peek_params.out_data, sizeof(u32));
+        {
+            SmapDisabler disabler;
+            *(peek_params.out_data) = result.value();
+        }
+        break;
     }
 
     case PT_POKE: {
         u32* addr = reinterpret_cast<u32*>(params.addr);
+        // write validation is done inside 'poke_user_data'
         return peer->process().poke_user_data(addr, params.data);
     }
 
