@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, Andreas Kling <kling@serenityos.org>
+ * Copyright (c) 2020, Itamar S. <itamar8910@gmail.com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -24,24 +24,17 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <AK/Memory.h>
-#include <AK/kmalloc.h>
-#include <Kernel/Arch/i386/CPU.h>
-#include <Kernel/Ptrace.h>
-#include <Kernel/ThreadTracer.h>
+#pragma once
+#include <Kernel/KResult.h>
+#include <Kernel/Process.h>
+#include <Kernel/Syscall.h>
+#include <LibC/sys/arch/i386/regs.h>
 
-namespace Kernel {
+namespace Ptrace {
 
-ThreadTracer::ThreadTracer(pid_t tracer_pid)
-    : m_tracer_pid(tracer_pid)
-{
-}
+KResultOr<u32> handle_syscall(const Kernel::Syscall::SC_ptrace_params& params, Process& caller);
 
-void ThreadTracer::set_regs(const RegisterState& regs)
-{
-    PtraceRegisters r;
-    Ptrace::copy_kernel_registers_into_ptrace_registers(r, regs);
-    m_regs = r;
-}
+void copy_kernel_registers_into_ptrace_registers(PtraceRegisters&, const RegisterState&);
+void copy_ptrace_registers_into_kernel_registers(RegisterState&, const PtraceRegisters&);
 
 }

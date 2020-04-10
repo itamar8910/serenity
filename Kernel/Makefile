@@ -126,7 +126,8 @@ OBJS = \
     ACPI/DMIDecoder.o \
     ACPI/MultiProcessorParser.o \
     WaitQueue.o \
-    init.o
+    init.o \
+    Ptrace.o
 
 OBJ_SUFFIX = .kernel
 
