@@ -93,8 +93,7 @@ KResultOr<u32> handle_syscall(const Kernel::Syscall::SC_ptrace_params& params, P
             SmapDisabler disabler;
             PtraceRegisters* regs = reinterpret_cast<PtraceRegisters*>(params.addr);
             RegisterState* peer_saved_registers = reinterpret_cast<RegisterState*>(peer->kernel_stack_top() - sizeof(RegisterState));
-            peer_saved_registers->eip = regs->eip;
-            // TODO: set the other registers
+            copy_ptrace_registers_into_kernel_registers(*peer_saved_registers, *regs);
             break;
         }
     }
