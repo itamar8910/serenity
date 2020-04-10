@@ -1,5 +1,6 @@
 OBJS = \
-    main.o
+    main.o \
+    DebugSession.o
 
 PROGRAM = Debugger
 
