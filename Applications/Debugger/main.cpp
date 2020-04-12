@@ -138,8 +138,12 @@ bool handle_breakpoint_command(const String& command)
         return false;
 
     u32 breakpoint_address = strtoul(parts[1].characters(), nullptr, 16);
-    if (errno != 0)
-        return false;
+    if (errno != 0) {
+        // TODO: check that symbol is in text section
+        // breakpoint_address = reinterpret_cast<u32>(g_debug_session->elf().symbol_ptr(parts[1].characters()));
+        if (breakpoint_address == 0)
+            return false;
+    }
     bool success = g_debug_session->insert_breakpoint(reinterpret_cast<void*>(breakpoint_address));
     if (!success) {
         fprintf(stderr, "coult not insert breakpoint at: 0x%x\n", breakpoint_address);
@@ -185,7 +189,7 @@ int main(int argc, char** argv)
     sa.sa_handler = handle_sigint;
     sigaction(SIGINT, &sa, nullptr);
 
-    bool rc = g_debug_session->insert_breakpoint(g_debug_session->get_entry_point().as_ptr());
+    bool rc = g_debug_session->insert_breakpoint(g_debug_session->elf().entry().as_ptr());
     ASSERT(rc);
 
     g_debug_session->run([&](DebugSession::DebugBreakReason reason, Optional<PtraceRegisters> optional_regs) {
@@ -222,3 +226,19 @@ int main(int argc, char** argv)
         }
     });
 }
+
+// Magic required for linking with __cxa_demangle
+
+class A {
+public:
+    virtual ~A() {};
+    virtual int foo() = 0;
+};
+class B : public A {
+
+public:
+    virtual ~B() override;
+    int f() { return 2; }
+};
+
+B::~B() {}
