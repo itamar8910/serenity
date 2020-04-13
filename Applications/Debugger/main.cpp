@@ -95,6 +95,7 @@ void handle_print_registers(const PtraceRegisters& regs)
 
 bool handle_disassemble_command(const String& command, void* first_instruction)
 {
+    (void)demangle("foo");
     auto parts = command.split(' ');
     size_t number_of_instructions_to_disassemble = 5;
     if (parts.size() == 2) {
@@ -238,19 +239,3 @@ int main(int argc, char** argv)
         }
     });
 }
-
-// Magic required for linking with __cxa_demangle
-
-class A {
-public:
-    virtual ~A() {};
-    virtual int foo() = 0;
-};
-class B : public A {
-
-public:
-    virtual ~B() override;
-    int f() { return 2; }
-};
-
-B::~B() {}
