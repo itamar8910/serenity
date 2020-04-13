@@ -212,7 +212,8 @@ int main(int argc, char** argv)
         ASSERT(optional_regs.has_value());
         const PtraceRegisters& regs = optional_regs.value();
 
-        printf("Program is stopped at: 0x%x\n", regs.eip);
+        auto symbol_at_ip = g_debug_session->elf().symbolicate(regs.eip);
+        printf("Program is stopped at: 0x%x (%s)\n", regs.eip, symbol_at_ip.characters());
         for (;;) {
             auto command = get_command();
             bool success = false;
