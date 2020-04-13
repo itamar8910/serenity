@@ -142,7 +142,7 @@ char* Loader::symbol_ptr(const char* name) const
     m_image.for_each_symbol([&](const Image::Symbol symbol) {
         if (symbol.type() != STT_FUNC)
             return IterationDecision::Continue;
-        if (symbol.name() == name)
+        if (symbol.name() != name)
             return IterationDecision::Continue;
         if (m_image.is_executable())
             found_ptr = (char*)(size_t)symbol.value();
@@ -151,6 +151,25 @@ char* Loader::symbol_ptr(const char* name) const
         return IterationDecision::Break;
     });
     return found_ptr;
+}
+
+Optional<Image::Symbol> Loader::find_demangled_function(const String& name) const
+{
+    Optional<Image::Symbol> found;
+    m_image.for_each_symbol([&](const Image::Symbol symbol) {
+        if (symbol.type() != STT_FUNC)
+            return IterationDecision::Continue;
+        auto demangled = demangle(symbol.name());
+        auto index_of_paren = demangled.index_of("(");
+        if (index_of_paren.has_value()) {
+            demangled = demangled.substring(0, index_of_paren.value());
+        }
+        if (demangled != name)
+            return IterationDecision::Continue;
+        found = symbol;
+        return IterationDecision::Break;
+    });
+    return found;
 }
 
 #ifndef KERNEL

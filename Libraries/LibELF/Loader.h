@@ -58,6 +58,7 @@ public:
         return m_image.entry();
     }
     char* symbol_ptr(const char* name) const;
+    Optional<Image::Symbol> find_demangled_function(const String& name) const;
 
     bool has_symbols() const { return m_symbol_count; }
 
