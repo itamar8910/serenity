@@ -58,6 +58,7 @@ Bitmap::Bitmap(BitmapFormat format, const Size& size, Purgeable purgeable)
     if (format == BitmapFormat::Indexed8)
         m_palette = new RGBA32[256];
     int map_flags = purgeable == Purgeable::Yes ? (MAP_PURGEABLE | MAP_PRIVATE) : (MAP_ANONYMOUS | MAP_PRIVATE);
+    dbg() << "<log #3> bitmap size_in_bytes: " << size_in_bytes();
     m_data = (RGBA32*)mmap_with_name(nullptr, size_in_bytes(), PROT_READ | PROT_WRITE, map_flags, 0, 0, String::format("GraphicsBitmap [%dx%d]", width(), height()).characters());
     ASSERT(m_data && m_data != (void*)-1);
     m_needs_munmap = true;

@@ -239,6 +239,7 @@ void Painter::draw_ellipse_intersecting(const Rect& rect, Color color, int thick
 
 void Painter::draw_rect(const Rect& a_rect, Color color, bool rough)
 {
+    dbg() << "<log #1> rect bitmap: " << (void*)m_target->scanline(0);
     Rect rect = a_rect.translated(translation());
     auto clipped_rect = rect.intersected(clip_rect());
     if (clipped_rect.is_empty())
