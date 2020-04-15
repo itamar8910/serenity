@@ -665,7 +665,13 @@ RegisterState& Thread::get_register_dump_from_stack()
 
 u32 Thread::make_userspace_stack_for_main_thread(Vector<String> arguments, Vector<String> environment)
 {
-    auto* region = m_process.allocate_region(VirtualAddress(), default_userspace_stack_size, "Stack (Main thread)", PROT_READ | PROT_WRITE, false);
+    Region* region = nullptr;
+    if (arguments[0] == "br") {
+        dbg() << "spawning browser!";
+        region = m_process.allocate_region(VirtualAddress(0x03000000), default_userspace_stack_size, "Stack (Main thread)", PROT_READ | PROT_WRITE, false);
+    } else {
+        region = m_process.allocate_region(VirtualAddress(), default_userspace_stack_size, "Stack (Main thread)", PROT_READ | PROT_WRITE, false);
+    }
     ASSERT(region);
     region->set_stack(true);
 
