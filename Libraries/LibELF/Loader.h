@@ -42,7 +42,7 @@ class Region;
 
 namespace ELF {
 
-class Loader {
+class Loader : public RefCounted<Loader> {
 public:
     explicit Loader(const u8*, size_t);
     ~Loader();
