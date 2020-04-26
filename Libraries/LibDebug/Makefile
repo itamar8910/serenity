@@ -2,6 +2,7 @@ OBJS = \
     DebugSession.o \
 	DebugInfo.o \
 	Dwarf/LineProgram.o \
+	Dwarf/DwarfEntries.o \
 
 
 LIBRARY = libdebug.a

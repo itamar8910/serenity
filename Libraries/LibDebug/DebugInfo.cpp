@@ -30,7 +30,13 @@
 DebugInfo::DebugInfo(NonnullRefPtr<const ELF::Loader> elf)
     : m_elf(elf)
 {
+    prepare_functions();
     prepare_lines();
+}
+
+void DebugInfo::prepare_functions()
+{
+    Dwarf::DebugEntries(m_elf->image());
 }
 
 void DebugInfo::prepare_lines()
@@ -45,7 +51,7 @@ void DebugInfo::prepare_lines()
     Vector<LineProgram::LineInfo> all_lines;
     while (!stream.at_end()) {
         LineProgram program(stream);
-        all_lines.append(move(program.lines()));
+        all_lines.append(program.lines());
     }
 
     for (auto& line_info : all_lines) {

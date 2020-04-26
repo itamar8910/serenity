@@ -30,6 +30,7 @@
 #include <AK/Optional.h>
 #include <AK/Vector.h>
 #include <LibELF/Loader.h>
+#include <Libraries/LibDebug/Dwarf/DwarfEntries.h>
 #include <Libraries/LibDebug/Dwarf/LineProgram.h>
 
 class DebugInfo {
@@ -44,6 +45,26 @@ public:
         bool operator==(const SourcePosition& other) const { return file_path == other.file_path && line_number == other.line_number; }
         bool operator!=(const SourcePosition& other) const { return !(*this == other); }
     };
+
+    struct VariableInfo {
+        enum class LocationType {
+            FramePointerReltaive,
+            Absolute,
+        };
+        String name;
+        String type;
+        LocationType location_type;
+        u32 location;
+    };
+
+    struct FunctionInfo {
+        String name;
+        u32 address_low;
+        u32 address_high;
+        Vector<VariableInfo> variables;
+    };
+
+    Optional<FunctionInfo> get_function_info(u32 address) const;
 
     Optional<SourcePosition> get_source_position(u32 address) const;
     Optional<u32> get_instruction_from_source(const String& file, size_t line) const;
@@ -63,9 +84,11 @@ public:
     }
 
 private:
+    void prepare_functions();
     void prepare_lines();
 
     NonnullRefPtr<const ELF::Loader> m_elf;
 
+    Vector<FunctionInfo> m_sorted_functions;
     Vector<LineProgram::LineInfo> m_sorted_lines;
 };
