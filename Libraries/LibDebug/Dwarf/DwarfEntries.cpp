@@ -161,6 +161,7 @@ AttributeValue DebugEntries::get_attribute_value(AttributeDataForm form, BufferS
 Vector<Entry> DebugEntries::parse_entries_for_compilation_unit(BufferStream& debug_info_stream, u32 end_offset, HashMap<u32, AbbreviationEntry> abbreviation_info_map)
 {
     Vector<Entry> entries;
+    entries.grow_capacity(2000);
     while ((u32)debug_info_stream.offset() < end_offset) {
         auto offset = debug_info_stream.offset();
         dbg() << "     offset: " << (void*)offset << " / " << (void*)end_offset;
@@ -194,6 +195,7 @@ Vector<Entry> DebugEntries::parse_entries_for_compilation_unit(BufferStream& deb
             // dbg() << "value data: " << (u32)value.data.as_u32;
             entry.attributes.set(attribute_spec.attribute, value);
         }
+        entries.empend(move(entry));
     }
     return entries;
 }

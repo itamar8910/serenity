@@ -36,7 +36,16 @@ DebugInfo::DebugInfo(NonnullRefPtr<const ELF::Loader> elf)
 
 void DebugInfo::prepare_functions()
 {
-    Dwarf::DebugEntries(m_elf->image());
+    Dwarf::DebugEntries entries(m_elf->image());
+    dbg() << "iteratring entries (size=" << entries.entries().size() << ")";
+    for (const auto& entry : entries.entries()) {
+        if (entry.tag == Dwarf::EntryTag::SubProgram) {
+            const auto& name = entry.attributes.get(Dwarf::Attribute::Name);
+            ASSERT(name.has_value());
+            ASSERT(name.value().type == Dwarf::AttributeValue::Type::String);
+            dbg() << "func name: " << name.value().data.as_string;
+        }
+    }
 }
 
 void DebugInfo::prepare_lines()
