@@ -148,7 +148,7 @@ AttributeValue DebugEntries::get_attribute_value(AttributeDataForm form, BufferS
         u32 str_offset = debug_info_stream.offset();
         debug_info_stream >> str;
         value.type = AttributeValue::Type::String;
-        value.data.as_string = reinterpret_cast<const char*>(str_offset);
+        value.data.as_string = reinterpret_cast<const char*>(str_offset + m_debug_info_section.raw_data());
         break;
     }
     default:
