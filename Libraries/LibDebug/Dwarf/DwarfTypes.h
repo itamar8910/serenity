@@ -44,6 +44,7 @@ enum class EntryTag : u32 {
 
 enum class Attribute : u32 {
     None = 0,
+    Sibling = 0x1,
     Name = 0x3,
     LowPc = 0x11,
     HighPc = 0x12,

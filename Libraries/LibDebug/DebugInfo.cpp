@@ -43,6 +43,9 @@ void DebugInfo::prepare_functions()
         dbg() << "CU callback!: " << (void*)unit.offset();
         auto root = unit.root_die();
         dbg() << "root die offset: " << (void*)root.offset();
+        root.for_each_child([&](const Dwarf::DIE& child) {
+            dbg() << "   child offset: " << (void*)child.offset();
+        });
     });
     // Dwarf::DebugEntries entries(m_elf->image());
     // dbg() << "iteratring entries (size=" << entries.entries().size() << ")";

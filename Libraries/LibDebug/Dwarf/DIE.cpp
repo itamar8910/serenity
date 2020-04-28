@@ -39,7 +39,9 @@ DIE::DIE(const CompilationUnit& unit, u32 offset)
     BufferStream stream(const_cast<ByteBuffer&>(m_compilation_unit.dwarf_info().debug_info_data()));
     stream.advance(m_offset);
     stream.read_LEB128_unsigned(m_abbreviation_code);
+    m_data_offset = stream.offset();
     if (m_abbreviation_code == 0) {
+        // An abbrevation code of 0 ( = null DIE entry) means the end of a chain of sibilings
         m_tag = EntryTag::None;
     } else {
         auto abbreviation_info = m_compilation_unit.abbreviations_map().get(m_abbreviation_code);
@@ -130,6 +132,21 @@ DIE::AttributeValue DIE::get_attribute_value(AttributeDataForm form,
         ASSERT_NOT_REACHED();
     }
     return value;
+}
+
+Optional<DIE::AttributeValue> DIE::get_attribute(const Attribute& attribute) const
+{
+    BufferStream stream(const_cast<ByteBuffer&>(m_compilation_unit.dwarf_info().debug_info_data()));
+    stream.advance(m_data_offset);
+    auto abbreviation_info = m_compilation_unit.abbreviations_map().get(m_abbreviation_code);
+    ASSERT(abbreviation_info.has_value());
+    for (const auto& attribute_spec : abbreviation_info.value().attribute_specifications) {
+        auto value = get_attribute_value(attribute_spec.form, stream);
+        if (attribute_spec.attribute == attribute) {
+            return value;
+        }
+    }
+    return {};
 }
 
 }
