@@ -30,55 +30,19 @@
 
 namespace Dwarf {
 
-HashMap<u32, AbbreviationEntry> DebugEntries::parse_abbreviation_info(u32 offset)
+ByteBuffer Entry::s_cached_debug_info {};
+
+const ByteBuffer& Entry::cached_debug_info()
 {
-    auto abbreviation_section = m_elf.lookup_section(".debug_abbrev");
-    ASSERT(!abbreviation_section.is_undefined());
-    ASSERT(offset < abbreviation_section.size());
-    HashMap<u32, AbbreviationEntry> abbreviation_entries;
-
-    auto abbreviation_buffer = ByteBuffer::wrap(reinterpret_cast<const u8*>(abbreviation_section.raw_data() + offset), abbreviation_section.size() - offset);
-    BufferStream abbreviation_stream(abbreviation_buffer);
-
-    while (!abbreviation_stream.at_end()) {
-        size_t abbreviation_code = 0;
-        abbreviation_stream.read_LEB128_unsigned(abbreviation_code);
-        dbg() << "Abbrev code: " << abbreviation_code;
-        // An abbrevation code of 0 marks the end of the
-        // abbrevations for a given compilation unit
-        if (abbreviation_code == 0)
-            break;
-
-        size_t tag {};
-        abbreviation_stream.read_LEB128_unsigned(tag);
-        u8 has_children = 0;
-        abbreviation_stream >> has_children;
-
-        AbbreviationEntry abbrevation_entry {};
-        abbrevation_entry.tag = static_cast<EntryTag>(tag);
-        abbrevation_entry.has_children = (has_children == 1);
-
-        AttributeSpecification current_attribute_specification {};
-        do {
-            size_t attribute_value = 0;
-            size_t form_value = 0;
-            abbreviation_stream.read_LEB128_unsigned(attribute_value);
-            abbreviation_stream.read_LEB128_unsigned(form_value);
-            current_attribute_specification.attribute = static_cast<Attribute>(attribute_value);
-            current_attribute_specification.form = static_cast<AttributeDataForm>(form_value);
-
-            if (current_attribute_specification.attribute != Attribute::None) {
-                abbrevation_entry.attribute_specifications.append(current_attribute_specification);
-            }
-        } while (current_attribute_specification.attribute != Attribute::None || current_attribute_specification.form != AttributeDataForm::None);
-
-        abbreviation_entries.set((u32)abbreviation_code, abbrevation_entry);
-    }
-
-    return abbreviation_entries;
+    return s_cached_debug_info;
 }
 
-AttributeValue DebugEntries::get_attribute_value(AttributeDataForm form, BufferStream& debug_info_stream) const
+void Entry::update_debug_info(const ByteBuffer& debug_info)
+{
+    s_cached_debug_info = ByteBuffer::wrap(debug_info.data(), debug_info.size());
+}
+
+AttributeValue Entry::get_attribute_value(AttributeDataForm form, BufferStream& debug_info_stream) const
 {
     // dbg() << "get_attribute_value with form: " << (void*)form;
     AttributeValue value;
@@ -139,7 +103,7 @@ AttributeValue DebugEntries::get_attribute_value(AttributeDataForm form, BufferS
         debug_info_stream.read_LEB128_unsigned(length);
         value.type = AttributeValue::Type::DwarfExpression;
         value.data.as_dwarf_expression.length = length;
-        value.data.as_dwarf_expression.bytes = reinterpret_cast<const u8*>(m_debug_info_section.raw_data() + debug_info_stream.offset());
+        value.data.as_dwarf_expression.bytes = reinterpret_cast<const u8*>(cached_debug_info().data() + debug_info_stream.offset());
         debug_info_stream.advance(length);
         break;
     }
@@ -148,7 +112,7 @@ AttributeValue DebugEntries::get_attribute_value(AttributeDataForm form, BufferS
         u32 str_offset = debug_info_stream.offset();
         debug_info_stream >> str;
         value.type = AttributeValue::Type::String;
-        value.data.as_string = reinterpret_cast<const char*>(str_offset + m_debug_info_section.raw_data());
+        value.data.as_string = reinterpret_cast<const char*>(str_offset + cached_debug_info().data());
         break;
     }
     default:
@@ -158,46 +122,74 @@ AttributeValue DebugEntries::get_attribute_value(AttributeDataForm form, BufferS
     return value;
 }
 
-Vector<Entry> DebugEntries::parse_entries_for_compilation_unit(BufferStream& debug_info_stream, u32 end_offset, HashMap<u32, AbbreviationEntry> abbreviation_info_map)
+void DebugEntries::parse_entries_for_compilation_unit(ByteBuffer& debug_info,
+    u32 compilation_unit_offset,
+    u32 compilation_unit_length,
+    NonnullRefPtr<AbbreviationInfo>& abbreviation_info)
 {
-    Vector<Entry> entries;
-    entries.grow_capacity(2000);
-    while ((u32)debug_info_stream.offset() < end_offset) {
-        auto offset = debug_info_stream.offset();
-        dbg() << "     offset: " << (void*)offset << " / " << (void*)end_offset;
-        size_t abbreviation_code = 0;
-        debug_info_stream.read_LEB128_unsigned(abbreviation_code);
-        if (abbreviation_code == 0) {
-            dbg() << "null DIE entry";
-            // An abbrevation code of 0 (A null DIE entry) means the end of a chain of sibilings
-            entries.append({ EntryTag::None, 0, false, {} });
-            continue;
-        }
 
-        dbg() << (void*)offset << ":" << abbreviation_code;
+    BufferStream stream(debug_info);
+    stream.advance(compilation_unit_offset);
+    while ((u32)stream.offset() < compilation_unit_offset + compilation_unit_length) {
+        auto offset = stream.offset();
+        Entry entry(m_elf, offset, abbreviation_info);
+        dbg() << (void*)offset << ":" << entry.abbreviation_code();
 
-        auto entry_info = abbreviation_info_map.get(abbreviation_code);
-        ASSERT(entry_info.has_value());
+        stream.advance(entry.size());
 
-        Entry entry {};
-        entry.tag = entry_info.value().tag;
-        entry.offset = offset;
-        entry.has_children = entry_info.value().has_children;
-
-        // for (auto& spec : entry_info.value().attribute_specifications) {
-        //     dbg() << "spec type: " << (void*)spec.attribute;
-        //     dbg() << "spec form: " << (void*)spec.form;
-        // }
-
-        for (auto attribute_spec : entry_info.value().attribute_specifications) {
-            auto value = get_attribute_value(attribute_spec.form, debug_info_stream);
-            // dbg() << "value type: " << (u32)value.type;
-            // dbg() << "value data: " << (u32)value.data.as_u32;
-            entry.attributes.set(attribute_spec.attribute, value);
-        }
-        entries.empend(move(entry));
+        m_entries.empend(move(entry));
     }
-    return entries;
+}
+
+Entry::Entry(const ELF::Image& elf, u32 offset, NonnullRefPtr<AbbreviationInfo> abbreviation_info)
+    : m_offset(offset)
+    , m_elf(elf)
+    , m_abbreviation_info(abbreviation_info)
+{
+
+    // We have to const_cast here because there isn't a version of
+    // BufferStream that accepts a non-const ByteStream
+    // We take care not to use BufferStream operations that modify the underlying buffer
+    // TOOD: We could add to AK a variant of BufferStream that operates on a const ByteBuffer
+    BufferStream stream(const_cast<ByteBuffer&>(cached_debug_info()));
+    stream.advance(offset);
+    stream.read_LEB128_unsigned(m_abbreviation_code);
+    m_data_offset = stream.offset();
+    if (m_abbreviation_code == 0) {
+        // An abbrevation code of 0 ( = null DIE entry) means the end of a chain of sibilings
+        m_tag = EntryTag::None;
+    } else {
+        auto info = abbreviation_info_of_entry();
+        m_tag = info.tag;
+        m_has_children = info.has_children;
+
+        for (auto attribute_spec : info.attribute_specifications) {
+            get_attribute_value(attribute_spec.form, stream);
+        }
+    }
+    m_size = stream.offset() - m_offset;
+}
+
+Optional<AttributeValue> Entry::get_attribute(const Attribute& attribute) const
+{
+    BufferStream stream(const_cast<ByteBuffer&>(cached_debug_info()));
+    stream.advance(m_data_offset);
+    auto info = abbreviation_info_of_entry();
+    for (const auto& attribute_spec : info.attribute_specifications) {
+        auto value = get_attribute_value(attribute_spec.form, stream);
+        if (attribute_spec.attribute == attribute) {
+            return value;
+        }
+    }
+    return {};
+}
+
+AbbreviationEntry Entry::abbreviation_info_of_entry() const
+{
+    // auto val = m_abbreviation_info->from_code((u32)m_abbreviation_code);
+    auto info = m_abbreviation_info->from_code((u32)m_abbreviation_code);
+    ASSERT(info.has_value());
+    return info.value();
 }
 
 DebugEntries::DebugEntries(const ELF::Image& image)
@@ -211,6 +203,8 @@ DebugEntries::DebugEntries(const ELF::Image& image)
 void DebugEntries::parse_entries()
 {
     auto debug_info_buffer = ByteBuffer::wrap(reinterpret_cast<const u8*>(m_debug_info_section.raw_data()), m_debug_info_section.size());
+    Entry::update_debug_info(debug_info_buffer);
+
     BufferStream debug_info_stream(debug_info_buffer);
 
     while (!debug_info_stream.at_end()) {
@@ -220,12 +214,62 @@ void DebugEntries::parse_entries()
         dbg() << compilation_unit_header.address_size;
         ASSERT(compilation_unit_header.address_size == sizeof(u32));
         ASSERT(compilation_unit_header.version == 4);
-        auto abbreviation_info = parse_abbreviation_info(compilation_unit_header.abbrev_offset);
+        auto abbreviation_info = AbbreviationInfo::create(m_elf, compilation_unit_header.abbrev_offset);
+        // auto abbreviation_info = parse_abbreviation_info(compilation_unit_header.abbrev_offset);
         u32 length_after_header = compilation_unit_header.length - (sizeof(CompilationUnitHeader) - offsetof(CompilationUnitHeader, version));
         // u32 length_after_header = compilation_unit_header.length - offsetof(CompilationUnitHeader, length) - 1;
-        auto entries_of_unit = parse_entries_for_compilation_unit(debug_info_stream, debug_info_stream.offset() + length_after_header, abbreviation_info);
-        m_entries.append(entries_of_unit);
+        parse_entries_for_compilation_unit(debug_info_buffer, debug_info_stream.offset(), length_after_header, abbreviation_info);
+        debug_info_stream.advance(length_after_header);
     }
 }
 
+AbbreviationInfo::AbbreviationInfo(const ELF::Image& elf, u32 offset)
+{
+    auto abbreviation_section = elf.lookup_section(".debug_abbrev");
+    ASSERT(!abbreviation_section.is_undefined());
+    ASSERT(offset < abbreviation_section.size());
+
+    auto abbreviation_buffer = ByteBuffer::wrap(reinterpret_cast<const u8*>(abbreviation_section.raw_data() + offset), abbreviation_section.size() - offset);
+    BufferStream abbreviation_stream(abbreviation_buffer);
+
+    while (!abbreviation_stream.at_end()) {
+        size_t abbreviation_code = 0;
+        abbreviation_stream.read_LEB128_unsigned(abbreviation_code);
+        dbg() << "Abbrev code: " << abbreviation_code;
+        // An abbrevation code of 0 marks the end of the
+        // abbrevations for a given compilation unit
+        if (abbreviation_code == 0)
+            break;
+
+        size_t tag {};
+        abbreviation_stream.read_LEB128_unsigned(tag);
+        u8 has_children = 0;
+        abbreviation_stream >> has_children;
+
+        AbbreviationEntry abbrevation_entry {};
+        abbrevation_entry.tag = static_cast<EntryTag>(tag);
+        abbrevation_entry.has_children = (has_children == 1);
+
+        AttributeSpecification current_attribute_specification {};
+        do {
+            size_t attribute_value = 0;
+            size_t form_value = 0;
+            abbreviation_stream.read_LEB128_unsigned(attribute_value);
+            abbreviation_stream.read_LEB128_unsigned(form_value);
+            current_attribute_specification.attribute = static_cast<Attribute>(attribute_value);
+            current_attribute_specification.form = static_cast<AttributeDataForm>(form_value);
+
+            if (current_attribute_specification.attribute != Attribute::None) {
+                abbrevation_entry.attribute_specifications.append(current_attribute_specification);
+            }
+        } while (current_attribute_specification.attribute != Attribute::None || current_attribute_specification.form != AttributeDataForm::None);
+
+        m_entries.set((u32)abbreviation_code, abbrevation_entry);
+    }
+}
+
+Optional<AbbreviationEntry> AbbreviationInfo::from_code(u32 code) const
+{
+    return m_entries.get(code);
+}
 }

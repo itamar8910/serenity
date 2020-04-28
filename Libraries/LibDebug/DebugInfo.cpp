@@ -38,12 +38,15 @@ void DebugInfo::prepare_functions()
 {
     Dwarf::DebugEntries entries(m_elf->image());
     dbg() << "iteratring entries (size=" << entries.entries().size() << ")";
-    for (const auto& entry : entries.entries()) {
-        if (entry.tag == Dwarf::EntryTag::SubProgram) {
-            const auto& name = entry.attributes.get(Dwarf::Attribute::Name);
+    auto entries_size = entries.entries().size();
+    for (size_t i = 0; i < entries_size; ++i) {
+        if (entry.tag() == Dwarf::EntryTag::SubProgram) {
+            const auto& name = entry.get_attribute(Dwarf::Attribute::Name);
             ASSERT(name.has_value());
             ASSERT(name.value().type == Dwarf::AttributeValue::Type::String);
             dbg() << "func name: " << name.value().data.as_string;
+            u32 level = 0;
+            // for()
         }
     }
 }

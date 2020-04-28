@@ -25,6 +25,7 @@
  */
 
 #pragma once
+#include <AK/ByteBuffer.h>
 #include <AK/HashMap.h>
 #include <AK/OwnPtr.h>
 #include <AK/String.h>
@@ -67,13 +68,6 @@ struct AttributeValue {
     } data;
 };
 
-struct Entry {
-    EntryTag tag;
-    u32 offset;
-    bool has_children;
-    HashMap<Attribute, AttributeValue> attributes;
-};
-
 enum class AttributeDataForm : u32 {
     None = 0,
     Addr = 0x1,
@@ -109,6 +103,57 @@ struct [[gnu::packed]] CompilationUnitHeader
     u8 address_size;
 };
 
+class AbbreviationInfo : public RefCounted<AbbreviationInfo> {
+
+public:
+    static NonnullRefPtr<AbbreviationInfo> create(const ELF::Image& elf, u32 offset)
+    {
+        return adopt(*new AbbreviationInfo(elf, offset));
+    }
+
+    Optional<AbbreviationEntry> from_code(u32 code) const;
+
+private:
+    AbbreviationInfo(const ELF::Image& elf, u32 offset);
+
+    HashMap<u32, AbbreviationEntry> m_entries;
+};
+
+class Entry {
+public:
+    Entry(const ELF::Image& elf, u32 offset, NonnullRefPtr<AbbreviationInfo>);
+
+    Optional<AttributeValue> get_attribute(const Attribute&) const;
+
+    bool is_null() const { return m_abbreviation_code == 0; }
+    u32 abbreviation_code() const { return m_abbreviation_code; }
+    size_t size() const { return m_size; };
+    EntryTag tag() const { return m_tag; };
+    u32 offset() const { return m_offset; };
+
+    AbbreviationEntry abbreviation_info_of_entry() const;
+
+    static void update_debug_info(const ByteBuffer&);
+
+private:
+    static ByteBuffer s_cached_debug_info;
+
+    static const ByteBuffer& cached_debug_info();
+
+    AttributeValue get_attribute_value(AttributeDataForm form, BufferStream& debug_info_stream) const;
+
+    u32 m_offset { 0 };
+    u32 m_data_offset { 0 };
+    size_t m_abbreviation_code { 0 };
+    EntryTag m_tag { EntryTag::None };
+    bool m_has_children { false };
+    size_t m_size { 0 };
+    const ELF::Image& m_elf;
+    NonnullRefPtr<AbbreviationInfo> m_abbreviation_info;
+
+    // HashMap<Attribute, AttributeValue> attributes;
+};
+
 class DebugEntries {
 public:
     DebugEntries(const ELF::Image&);
@@ -118,25 +163,14 @@ public:
 private:
     void parse_entries();
 
-    HashMap<u32, AbbreviationEntry> parse_abbreviation_info(u32 offset);
-
-    Vector<Entry> parse_entries_for_compilation_unit(BufferStream& debug_info_stream, u32 end_offset, HashMap<u32, AbbreviationEntry> abbreviation_info_map);
-    AttributeValue get_attribute_value(AttributeDataForm form, BufferStream& debug_info_stream) const;
+    void parse_entries_for_compilation_unit(ByteBuffer& debug_info,
+        u32 compilation_unit_offset,
+        u32 compilation_unit_length,
+        NonnullRefPtr<AbbreviationInfo>& abbreviation_info);
 
     const ELF::Image& m_elf;
     Vector<Entry> m_entries;
     const ELF::Image::Section m_debug_info_section;
 };
 
-}
-
-namespace AK {
-
-template<>
-struct Traits<Dwarf::Attribute> : public GenericTraits<Dwarf::Attribute> {
-    static unsigned hash(const Dwarf::Attribute& attribute)
-    {
-        return int_hash(static_cast<u32>(attribute));
-    }
-};
 }
