@@ -148,7 +148,7 @@ Entry::Entry(const ELF::Image& elf, u32 offset, NonnullRefPtr<AbbreviationInfo> 
 {
 
     // We have to const_cast here because there isn't a version of
-    // BufferStream that accepts a non-const ByteStream
+    // BufferStream that accepts a const ByteStream
     // We take care not to use BufferStream operations that modify the underlying buffer
     // TOOD: We could add to AK a variant of BufferStream that operates on a const ByteBuffer
     BufferStream stream(const_cast<ByteBuffer&>(cached_debug_info()));

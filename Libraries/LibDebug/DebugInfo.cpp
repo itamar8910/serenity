@@ -26,6 +26,8 @@
 
 #include "DebugInfo.h"
 #include <AK/QuickSort.h>
+#include <LibDebug/Dwarf/CompilationUnit.h>
+#include <LibDebug/Dwarf/DwarfInfo.h>
 
 DebugInfo::DebugInfo(NonnullRefPtr<const ELF::Loader> elf)
     : m_elf(elf)
@@ -36,19 +38,26 @@ DebugInfo::DebugInfo(NonnullRefPtr<const ELF::Loader> elf)
 
 void DebugInfo::prepare_functions()
 {
-    Dwarf::DebugEntries entries(m_elf->image());
-    dbg() << "iteratring entries (size=" << entries.entries().size() << ")";
-    auto entries_size = entries.entries().size();
-    for (size_t i = 0; i < entries_size; ++i) {
-        if (entry.tag() == Dwarf::EntryTag::SubProgram) {
-            const auto& name = entry.get_attribute(Dwarf::Attribute::Name);
-            ASSERT(name.has_value());
-            ASSERT(name.value().type == Dwarf::AttributeValue::Type::String);
-            dbg() << "func name: " << name.value().data.as_string;
-            u32 level = 0;
-            // for()
-        }
-    }
+    auto dwarf_info = Dwarf::DwarfInfo::create(m_elf);
+    dwarf_info->for_each_compilation_unit([&](const Dwarf::CompilationUnit& unit) {
+        dbg() << "CU callback!: " << (void*)unit.offset();
+        auto root = unit.root_die();
+        dbg() << "root die offset: " << (void*)root.offset();
+    });
+    // Dwarf::DebugEntries entries(m_elf->image());
+    // dbg() << "iteratring entries (size=" << entries.entries().size() << ")";
+    // auto entries_size = entries.entries().size();
+    // for (size_t i = 0; i < entries_size; ++i) {
+    //     const auto& entry = entries.entries()[i];
+    //     if (entry.tag() == Dwarf::EntryTag::SubProgram) {
+    //         const auto& name = entry.get_attribute(Dwarf::Attribute::Name);
+    //         ASSERT(name.has_value());
+    //         ASSERT(name.value().type == Dwarf::AttributeValue::Type::String);
+    //         dbg() << "func name: " << name.value().data.as_string;
+    //         // u32 level = 0;
+    //         // for()
+    //     }
+    // }
 }
 
 void DebugInfo::prepare_lines()

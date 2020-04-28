@@ -33,19 +33,6 @@
 
 namespace Dwarf {
 
-enum class EntryTag : u32 {
-    None = 0,
-    SubProgram = 0x2e,
-    Variable = 0x34,
-};
-
-enum class Attribute : u32 {
-    None = 0,
-    Name = 0x3,
-    LowPc = 0x11,
-    HighPc = 0x12,
-};
-
 struct AttributeValue {
     enum class Type {
         UnsignedNumber,
@@ -68,20 +55,6 @@ struct AttributeValue {
     } data;
 };
 
-enum class AttributeDataForm : u32 {
-    None = 0,
-    Addr = 0x1,
-    Data2 = 0x5,
-    Data4 = 0x6,
-    String = 0x8,
-    Data1 = 0xb,
-    StringPointer = 0xe,
-    Ref4 = 0x13,
-    SecOffset = 0x17,
-    ExprLoc = 0x18,
-    FlagPresent = 0x19,
-};
-
 struct AttributeSpecification {
     Attribute attribute;
     AttributeDataForm form;
@@ -95,12 +68,11 @@ struct AbbreviationEntry {
     Vector<AttributeSpecification> attribute_specifications;
 };
 
-struct [[gnu::packed]] CompilationUnitHeader
-{
-    u32 length;
-    u16 version;
-    u32 abbrev_offset;
-    u8 address_size;
+struct EntryNode {
+    Entry* entry { nullptr };
+    EntryNode* parent { nullptr };
+    EntryNode* first_child { nullptr };
+    EntryNode* next_sibling { nullptr };
 };
 
 class AbbreviationInfo : public RefCounted<AbbreviationInfo> {
@@ -159,9 +131,11 @@ public:
     DebugEntries(const ELF::Image&);
 
     const Vector<Entry>& entries() { return m_entries; }
+    const Vector<EntryNode>& entries() { return m_entries; }
 
 private:
     void parse_entries();
+    void parse_entries_into_trees();
 
     void parse_entries_for_compilation_unit(ByteBuffer& debug_info,
         u32 compilation_unit_offset,
@@ -170,6 +144,7 @@ private:
 
     const ELF::Image& m_elf;
     Vector<Entry> m_entries;
+    Vector<EntryNode> m_compilation_unit_trees;
     const ELF::Image::Section m_debug_info_section;
 };
 
