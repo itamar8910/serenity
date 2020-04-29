@@ -147,3 +147,22 @@ Optional<u32> DebugInfo::get_instruction_from_source(const String& file, size_t 
     }
     return {};
 }
+
+Optional<DebugInfo::VariablesScope> DebugInfo::get_scope_info(u32 address) const
+{
+    // TODO: We can store the scopes in a better data strucutre
+    Optional<VariablesScope> best_matching_scope;
+
+    for (const auto& scope : m_scopes) {
+        if (scope.address_low <= address && scope.address_high > address) {
+
+            if (!best_matching_scope.has_value()) {
+                best_matching_scope = scope;
+
+            } else if (scope.address_low > best_matching_scope.value().address_low || scope.address_high < best_matching_scope.value().address_high) {
+                best_matching_scope = scope;
+            }
+        }
+    }
+    return best_matching_scope;
+}
