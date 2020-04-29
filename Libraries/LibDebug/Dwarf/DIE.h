@@ -28,6 +28,7 @@
 #include "CompilationUnit.h"
 #include "DwarfTypes.h"
 #include <AK/BufferStream.h>
+#include <AK/Function.h>
 #include <AK/NonnullOwnPtr.h>
 #include <AK/Optional.h>
 #include <AK/Types.h>
@@ -69,8 +70,7 @@ public:
 
     Optional<AttributeValue> get_attribute(const Attribute&) const;
 
-    template<typename Callback>
-    void for_each_child(Callback) const;
+    void for_each_child(Function<void(const DIE& child)> callback) const;
 
     bool is_null() const { return m_tag == EntryTag::None; }
 
@@ -86,33 +86,5 @@ private:
     bool m_has_children { false };
     u32 m_size { 0 };
 };
-
-template<typename Callback>
-void DIE::for_each_child(Callback callback) const
-{
-    if (!m_has_children)
-        return;
-
-    NonnullOwnPtr<DIE> current_child = make<DIE>(m_compilation_unit, m_offset + m_size);
-    while (!current_child->is_null()) {
-        callback(*current_child);
-        if (!current_child->has_children()) {
-            current_child = make<DIE>(m_compilation_unit, current_child->offset() + current_child->size());
-            continue;
-        }
-
-        auto sibling = current_child->get_attribute(Attribute::Sibling);
-        if (!sibling.has_value()) {
-            // NOTE: According to the spec, the compiler does't have to put the sibling information.
-            // However, our gcc seems to put it, which makes our lives easier.
-            // If we wanted to handle the case where it does not exist,
-            // we need to recursively iterate the current child's children to find where it ends,
-            // and from there iterate to the next sibling.
-            ASSERT_NOT_REACHED();
-        }
-        ASSERT(sibling.value().type == AttributeValue::Type::DieReference);
-        current_child = make<DIE>(m_compilation_unit, m_compilation_unit.offset() + sibling.value().data.as_u32);
-    }
-}
 
 }

@@ -38,6 +38,7 @@ struct [[gnu::packed]] CompilationUnitHeader
 
 enum class EntryTag : u32 {
     None = 0,
+    LexicalBlock = 0xb,
     SubProgram = 0x2e,
     Variable = 0x34,
 };
@@ -48,6 +49,8 @@ enum class Attribute : u32 {
     Name = 0x3,
     LowPc = 0x11,
     HighPc = 0x12,
+    Inline = 0x20,
+    Ranges = 0x55,
 };
 
 enum class AttributeDataForm : u32 {

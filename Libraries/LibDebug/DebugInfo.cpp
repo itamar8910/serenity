@@ -32,29 +32,70 @@
 DebugInfo::DebugInfo(NonnullRefPtr<const ELF::Loader> elf)
     : m_elf(elf)
 {
-    prepare_functions();
+    prepare_variable_scopes();
     prepare_lines();
 }
 
-void DebugInfo::prepare_functions()
+void DebugInfo::prepare_variable_scopes()
 {
     auto dwarf_info = Dwarf::DwarfInfo::create(m_elf);
     dwarf_info->for_each_compilation_unit([&](const Dwarf::CompilationUnit& unit) {
         // dbg() << "CU callback!: " << (void*)unit.offset();
         auto root = unit.root_die();
-        dbg() << "root die offset: " << (void*)root.offset();
-        root.for_each_child([&](const Dwarf::DIE& child) {
-            if (child.tag() == Dwarf::EntryTag::SubProgram) {
-                dbg() << "   child offset: " << (void*)child.offset();
-                dbg() << "Subprogram: " << (const char*)child.get_attribute(Dwarf::Attribute::Name).value().data.as_string;
+        parse_scopes_impl(root);
+        // dbg() << "root die offset: " << (void*)root.offset();
+        // root.for_each_child([&](const Dwarf::DIE& child) {
+        //     if (child.tag() == Dwarf::EntryTag::SubProgram) {
+        //         dbg() << "   child offset: " << (void*)child.offset();
+        //         dbg() << "   Subprogram: " << (const char*)child.get_attribute(Dwarf::Attribute::Name).value().data.as_string;
+        //     }
+        // });
+    });
+}
+
+void DebugInfo::parse_scopes_impl(const Dwarf::DIE& die)
+{
+    die.for_each_child([&](const Dwarf::DIE& child) {
+        if (child.is_null())
+            return;
+        if (child.tag() == Dwarf::EntryTag::SubProgram || child.tag() == Dwarf::EntryTag::LexicalBlock) {
+            if (child.get_attribute(Dwarf::Attribute::Inline).has_value()) {
+                // We currently do not support inlined functions
+                return;
             }
-        });
+            if (child.get_attribute(Dwarf::Attribute::Ranges).has_value()) {
+                // We currently do not support ranges
+                return;
+            }
+            dbg() << "low pc: " << (void*)child.get_attribute(Dwarf::Attribute::LowPc).value().data.as_u32;
+            dbg() << "high pc: " << (void*)child.get_attribute(Dwarf::Attribute::HighPc).value().data.as_u32;
+            auto name = child.get_attribute(Dwarf::Attribute::Name);
+
+            VariablesScope scope {};
+            scope.is_function = (child.tag() == Dwarf::EntryTag::SubProgram);
+            if (name.has_value())
+                scope.name = name.value().data.as_string;
+            dbg() << "scope name: " << (scope.name.has_value() ? scope.name.value() : "[Unnamed]");
+            scope.address_low = child.get_attribute(Dwarf::Attribute::LowPc).value().data.as_u32;
+            // Yes, the attribute name HighPc is confusing - it seems to actually be a positive offset from LowPc
+            scope.address_high = scope.address_low + child.get_attribute(Dwarf::Attribute::HighPc).value().data.as_u32;
+            child.for_each_child([&](const Dwarf::DIE& variable_entry) {
+                if (variable_entry.tag() != Dwarf::EntryTag::Variable)
+                    return;
+                VariableInfo variable_info {};
+                variable_info.name = variable_entry.get_attribute(Dwarf::Attribute::Name).value().data.as_string;
+                dbg() << "variable: " << variable_info.name;
+                scope.variables.append(variable_info);
+            });
+            m_scopes.append(scope);
+
+            parse_scopes_impl(child);
+        }
     });
 }
 
 void DebugInfo::prepare_lines()
 {
-
     auto section = m_elf->image().lookup_section(".debug_line");
     ASSERT(!section.is_undefined());
 
@@ -84,7 +125,6 @@ void DebugInfo::prepare_lines()
 
 Optional<DebugInfo::SourcePosition> DebugInfo::get_source_position(u32 target_address) const
 {
-
     if (m_sorted_lines.is_empty())
         return {};
     if (target_address < m_sorted_lines[0].address)

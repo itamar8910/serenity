@@ -53,18 +53,19 @@ public:
         };
         String name;
         String type;
-        LocationType location_type;
-        u32 location;
+        LocationType location_type { LocationType::FramePointerReltaive };
+        u32 location { 0 };
     };
 
-    struct FunctionInfo {
-        String name;
-        u32 address_low;
-        u32 address_high;
+    struct VariablesScope {
+        bool is_function { false };
+        Optional<String> name;
+        u32 address_low { 0 };
+        u32 address_high { 0 };
         Vector<VariableInfo> variables;
     };
 
-    Optional<FunctionInfo> get_function_info(u32 address) const;
+    Optional<VariablesScope> get_scope_info(u32 address) const;
 
     Optional<SourcePosition> get_source_position(u32 address) const;
     Optional<u32> get_instruction_from_source(const String& file, size_t line) const;
@@ -84,11 +85,12 @@ public:
     }
 
 private:
-    void prepare_functions();
+    void prepare_variable_scopes();
     void prepare_lines();
+    void parse_scopes_impl(const Dwarf::DIE& die);
 
     NonnullRefPtr<const ELF::Loader> m_elf;
 
-    Vector<FunctionInfo> m_sorted_functions;
+    Vector<VariablesScope> m_scopes;
     Vector<LineProgram::LineInfo> m_sorted_lines;
 };
