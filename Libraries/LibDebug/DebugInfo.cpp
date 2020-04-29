@@ -40,27 +40,16 @@ void DebugInfo::prepare_functions()
 {
     auto dwarf_info = Dwarf::DwarfInfo::create(m_elf);
     dwarf_info->for_each_compilation_unit([&](const Dwarf::CompilationUnit& unit) {
-        dbg() << "CU callback!: " << (void*)unit.offset();
+        // dbg() << "CU callback!: " << (void*)unit.offset();
         auto root = unit.root_die();
         dbg() << "root die offset: " << (void*)root.offset();
         root.for_each_child([&](const Dwarf::DIE& child) {
-            dbg() << "   child offset: " << (void*)child.offset();
+            if (child.tag() == Dwarf::EntryTag::SubProgram) {
+                dbg() << "   child offset: " << (void*)child.offset();
+                dbg() << "Subprogram: " << (const char*)child.get_attribute(Dwarf::Attribute::Name).value().data.as_string;
+            }
         });
     });
-    // Dwarf::DebugEntries entries(m_elf->image());
-    // dbg() << "iteratring entries (size=" << entries.entries().size() << ")";
-    // auto entries_size = entries.entries().size();
-    // for (size_t i = 0; i < entries_size; ++i) {
-    //     const auto& entry = entries.entries()[i];
-    //     if (entry.tag() == Dwarf::EntryTag::SubProgram) {
-    //         const auto& name = entry.get_attribute(Dwarf::Attribute::Name);
-    //         ASSERT(name.has_value());
-    //         ASSERT(name.value().type == Dwarf::AttributeValue::Type::String);
-    //         dbg() << "func name: " << name.value().data.as_string;
-    //         // u32 level = 0;
-    //         // for()
-    //     }
-    // }
 }
 
 void DebugInfo::prepare_lines()

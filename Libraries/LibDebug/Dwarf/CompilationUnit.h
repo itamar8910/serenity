@@ -26,12 +26,12 @@
 
 #pragma once
 #include "AbbreviationsMap.h"
-#include "DIE.h"
 #include <AK/Types.h>
 
 namespace Dwarf {
 
 class DwarfInfo;
+class DIE;
 
 class CompilationUnit {
 public:

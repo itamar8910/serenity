@@ -25,6 +25,7 @@
  */
 
 #pragma once
+#include "CompilationUnit.h"
 #include "DwarfTypes.h"
 #include <AK/BufferStream.h>
 #include <AK/NonnullOwnPtr.h>
@@ -64,6 +65,7 @@ public:
     u32 offset() const { return m_offset; }
     u32 size() const { return m_size; }
     bool has_children() const { return m_has_children; }
+    EntryTag tag() const { return m_tag; }
 
     Optional<AttributeValue> get_attribute(const Attribute&) const;
 
@@ -101,13 +103,15 @@ void DIE::for_each_child(Callback callback) const
 
         auto sibling = current_child->get_attribute(Attribute::Sibling);
         if (!sibling.has_value()) {
-            // FIXME: The compiler does't have to put the sibling information.
-            // We need to handle the case where it does not exist,
-            // and recursively iterate the current child's children to find where it ends
+            // NOTE: According to the spec, the compiler does't have to put the sibling information.
+            // However, our gcc seems to put it, which makes our lives easier.
+            // If we wanted to handle the case where it does not exist,
+            // we need to recursively iterate the current child's children to find where it ends,
+            // and from there iterate to the next sibling.
             ASSERT_NOT_REACHED();
         }
         ASSERT(sibling.value().type == AttributeValue::Type::DieReference);
-        current_child = make<DIE>(m_compilation_unit, sibling.value().data.as_u32);
+        current_child = make<DIE>(m_compilation_unit, m_compilation_unit.offset() + sibling.value().data.as_u32);
     }
 }
 

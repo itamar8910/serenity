@@ -30,6 +30,7 @@
 #include <AK/Optional.h>
 #include <AK/Vector.h>
 #include <LibELF/Loader.h>
+#include <Libraries/LibDebug/Dwarf/DIE.h>
 #include <Libraries/LibDebug/Dwarf/LineProgram.h>
 
 class DebugInfo {
