@@ -28,6 +28,7 @@
 #include <AK/QuickSort.h>
 #include <LibDebug/Dwarf/CompilationUnit.h>
 #include <LibDebug/Dwarf/DwarfInfo.h>
+#include <LibDebug/Dwarf/Expression.h>
 
 DebugInfo::DebugInfo(NonnullRefPtr<const ELF::Loader> elf)
     : m_elf(elf)
@@ -51,6 +52,7 @@ DebugInfo::VariableInfo DebugInfo::create_variable_info(const Dwarf::DIE& variab
 
     VariableInfo variable_info {};
     variable_info.name = variable_die.get_attribute(Dwarf::Attribute::Name).value().data.as_string;
+    dbg() << "Variable: " << variable_info.name;
     auto type_die_offset = variable_die.get_attribute(Dwarf::Attribute::Type);
     ASSERT(type_die_offset.has_value());
     ASSERT(type_die_offset.value().type == Dwarf::DIE::AttributeValue::Type::DieReference);
@@ -62,6 +64,18 @@ DebugInfo::VariableInfo DebugInfo::create_variable_info(const Dwarf::DIE& variab
         dbg() << "Complex DWRAF type at offset: " << type_die.offset();
         variable_info.name = "[Complex Type]";
     }
+
+    auto location_info = variable_die.get_attribute(Dwarf::Attribute::Location);
+    if (location_info.has_value() && location_info.value().type == Dwarf::DIE::AttributeValue::Type::DwarfExpression) {
+        auto expression_bytes = ByteBuffer::wrap(location_info.value().data.as_dwarf_expression.bytes, location_info.value().data.as_dwarf_expression.length);
+        auto value = Dwarf::Expression::evaluate(expression_bytes);
+        if (value.type != Dwarf::Expression::Type::None) {
+            ASSERT(value.type == Dwarf::Expression::Type::FrameRegister);
+            variable_info.location_type = VariableInfo::LocationType::FramePointerRelative;
+            variable_info.location_data.as_i32 = value.data.as_i32;
+        }
+    }
+
     return variable_info;
 }
 

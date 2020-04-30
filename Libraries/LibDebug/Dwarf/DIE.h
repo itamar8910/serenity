@@ -49,6 +49,7 @@ public:
             DieReference, // Reference to another DIE in the same compilation unit
             Boolean,
             DwarfExpression,
+            SecOffset,
         } type;
 
         union {
@@ -60,7 +61,7 @@ public:
                 u32 length;
                 const u8* bytes; // points to bytes in the elf image
             } as_dwarf_expression;
-        } data;
+        } data {};
     };
 
     u32 offset() const { return m_offset; }

@@ -53,8 +53,26 @@ GUI::Variant DebugInfoModel::data(const GUI::ModelIndex& index, Role role) const
             return variable.name;
         case Column::VariableType:
             return variable.type;
-        case Column::VariableValue:
-            return "N/A";
+        case Column::VariableValue: {
+            if (variable.location_type != DebugInfo::VariableInfo::LocationType::FramePointerRelative)
+                return "N/A";
+            u32 variable_address = m_regs.ebp + 2 * sizeof(size_t) + variable.location_data.as_i32;
+            dbg() << "variable name: " << variable.name;
+            dbg() << "variable address: " << (void*)variable_address;
+            if (variable.type == "int") {
+                auto value = Debugger::the().session()->peek((u32*)variable_address);
+                ASSERT(value.has_value());
+                dbg() << "int val: " << (void*)value.value();
+                return static_cast<int>(value.value());
+            }
+            if (variable.type == "char") {
+                auto value = Debugger::the().session()->peek((u32*)variable_address);
+                ASSERT(value.has_value());
+                return static_cast<char>(value.value());
+            } else {
+                return String::format("*(%08x)", variable_address);
+            }
+        }
         }
     }
     return {};
@@ -68,7 +86,7 @@ static RefPtr<DebugInfoModel> create_model(const PtraceRegisters& regs)
     for (const auto& var : scope_info.value().variables) {
         variables.append(var);
     }
-    return adopt(*new DebugInfoModel(move(variables)));
+    return adopt(*new DebugInfoModel(move(variables), regs));
 }
 
 DebugInfoWidget::DebugInfoWidget()
@@ -76,7 +94,7 @@ DebugInfoWidget::DebugInfoWidget()
     set_layout<GUI::VerticalBoxLayout>();
     m_info_view = add<GUI::TableView>();
     m_info_view->set_size_columns_to_fit_content(true);
-    m_info_view->set_model(*(new DebugInfoModel));
+    // m_info_view->set_model(*(new DebugInfoModel));
 }
 
 void DebugInfoWidget::update_variables(const PtraceRegisters& regs)

@@ -94,7 +94,7 @@ DIE::AttributeValue DIE::get_attribute_value(AttributeDataForm form,
     case AttributeDataForm::Data4: {
         u32 data = 0;
         debug_info_stream >> data;
-        value.type = AttributeValue::Type::UnsignedNumber;
+        value.type = AttributeValue::Type::SecOffset;
         value.data.as_u32 = data;
         break;
     }

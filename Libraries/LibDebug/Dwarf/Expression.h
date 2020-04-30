@@ -25,48 +25,29 @@
  */
 
 #pragma once
+#include "AK/ByteBuffer.h"
+#include "AK/Types.h"
 
-#include "Debugger.h"
-#include <LibGUI/Model.h>
-#include <LibGUI/Widget.h>
-#include <sys/arch/i386/regs.h>
-
-class DebugInfoModel final : public GUI::Model {
-public:
-    enum Column {
-        VariableName,
-        VariableType,
-        VariableValue,
-        __Count
-    };
-
-    explicit DebugInfoModel(Vector<DebugInfo::VariableInfo>&& variables, const PtraceRegisters& regs)
-        : m_variables(move(variables))
-        , m_regs(regs)
-    {
-    }
-
-    virtual int row_count(const GUI::ModelIndex& = GUI::ModelIndex()) const override { return m_variables.size(); }
-    virtual int column_count(const GUI::ModelIndex& = GUI::ModelIndex()) const override { return Column::__Count; }
-    virtual String column_name(int column) const override;
-    virtual GUI::Variant data(const GUI::ModelIndex& index, Role role = Role::Display) const override;
-    virtual void update() override {}
-    virtual GUI::ModelIndex index(int row, int column = 0, const GUI::ModelIndex& = GUI::ModelIndex()) const override { return create_index(row, column, &m_variables.at(row)); }
-
-private:
-    Vector<DebugInfo::VariableInfo> m_variables;
-    PtraceRegisters m_regs;
+namespace Dwarf {
+namespace Expression {
+enum class Type {
+    None,
+    FrameRegister,
 };
 
-class DebugInfoWidget final : public GUI::Widget {
-    C_OBJECT(DebugInfoWidget)
-public:
-    virtual ~DebugInfoWidget() override {}
+struct Value {
+    Type type;
+    union {
+        i32 as_i32;
+    } data { 0 };
+};
 
-    void update_variables(const PtraceRegisters&);
+enum class Operations : u8 {
+    RegEbp = 0x75,
+    FbReg = 0x91,
+};
 
-private:
-    explicit DebugInfoWidget();
+Value evaluate(const ByteBuffer&);
 
-    RefPtr<GUI::TableView> m_info_view;
+};
 };

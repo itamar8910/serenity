@@ -23,55 +23,36 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#pragma once
-#include <AK/Types.h>
+#include "Expression.h"
+#include <AK/BufferStream.h>
 
 namespace Dwarf {
+namespace Expression {
 
-struct [[gnu::packed]] CompilationUnitHeader
+Value evaluate(const ByteBuffer& bytes)
 {
-    u32 length;
-    u16 version;
-    u32 abbrev_offset;
-    u8 address_size;
-};
+    // TODO: we need a BufferStream variant that takes a const ByteBuffer
+    BufferStream stream(const_cast<ByteBuffer&>(bytes));
 
-enum class EntryTag : u32 {
-    None = 0,
-    LexicalBlock = 0xb,
-    SubProgram = 0x2e,
-    Variable = 0x34,
-};
-
-enum class Attribute : u32 {
-    None = 0,
-    Sibling = 0x1,
-    Location = 0x2,
-    Name = 0x3,
-    LowPc = 0x11,
-    HighPc = 0x12,
-    Inline = 0x20,
-    Type = 0x49,
-    Ranges = 0x55,
-};
-
-enum class AttributeDataForm : u32 {
-    None = 0,
-    Addr = 0x1,
-    Data2 = 0x5,
-    Data4 = 0x6,
-    String = 0x8,
-    Data1 = 0xb,
-    StringPointer = 0xe,
-    Ref4 = 0x13,
-    SecOffset = 0x17,
-    ExprLoc = 0x18,
-    FlagPresent = 0x19,
-};
-
-struct AttributeSpecification {
-    Attribute attribute;
-    AttributeDataForm form;
-};
-
+    while (!stream.at_end()) {
+        u8 opcode = 0;
+        stream >> opcode;
+        switch (static_cast<Operations>(opcode)) {
+        case Operations::RegEbp:
+            [[fallthrough]];
+        case Operations::FbReg: {
+            int offset = 0;
+            stream.read_LEB128_signed(offset);
+            return Value { Type::FrameRegister, offset };
+        }
+        default:
+            dbg() << "expr addr: " << (const void*)bytes.data();
+            dbg() << "unsupported opcode: " << (u8)opcode;
+            ASSERT_NOT_REACHED();
+        }
+    }
+    ASSERT_NOT_REACHED();
 }
+
+};
+};
