@@ -102,7 +102,8 @@ DIE::AttributeValue DIE::get_attribute_value(AttributeDataForm form,
         u32 data = 0;
         debug_info_stream >> data;
         value.type = AttributeValue::Type::DieReference;
-        value.data.as_u32 = data;
+        // value.data.as_u32 = data;
+        value.data.as_u32 = data + m_compilation_unit.offset();
         break;
     }
     case AttributeDataForm::FlagPresent: {
@@ -168,7 +169,8 @@ void DIE::for_each_child(Function<void(const DIE& child)> callback) const
         auto sibling = current_child->get_attribute(Attribute::Sibling);
         u32 sibling_offset = 0;
         if (sibling.has_value()) {
-            sibling_offset = sibling.value().data.as_u32 + m_compilation_unit.offset();
+            sibling_offset = sibling.value().data.as_u32;
+            // sibling_offset = sibling.value().data.as_u32 + m_compilation_unit.offset();
         }
 
         if (!sibling.has_value()) {

@@ -48,12 +48,12 @@ public:
 
     struct VariableInfo {
         enum class LocationType {
-            FramePointerReltaive,
+            FramePointerRelative,
             Absolute,
         };
         String name;
         String type;
-        LocationType location_type { LocationType::FramePointerReltaive };
+        LocationType location_type { LocationType::FramePointerRelative };
         u32 location { 0 };
     };
 
