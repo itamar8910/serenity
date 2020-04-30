@@ -40,17 +40,29 @@ void DebugInfo::prepare_variable_scopes()
 {
     auto dwarf_info = Dwarf::DwarfInfo::create(m_elf);
     dwarf_info->for_each_compilation_unit([&](const Dwarf::CompilationUnit& unit) {
-        // dbg() << "CU callback!: " << (void*)unit.offset();
         auto root = unit.root_die();
         parse_scopes_impl(root);
-        // dbg() << "root die offset: " << (void*)root.offset();
-        // root.for_each_child([&](const Dwarf::DIE& child) {
-        //     if (child.tag() == Dwarf::EntryTag::SubProgram) {
-        //         dbg() << "   child offset: " << (void*)child.offset();
-        //         dbg() << "   Subprogram: " << (const char*)child.get_attribute(Dwarf::Attribute::Name).value().data.as_string;
-        //     }
-        // });
     });
+}
+
+DebugInfo::VariableInfo DebugInfo::create_variable_info(const Dwarf::DIE& variable_die)
+{
+    ASSERT(variable_die.tag() == Dwarf::EntryTag::Variable);
+
+    VariableInfo variable_info {};
+    variable_info.name = variable_die.get_attribute(Dwarf::Attribute::Name).value().data.as_string;
+    auto type_die_offset = variable_die.get_attribute(Dwarf::Attribute::Type);
+    ASSERT(type_die_offset.has_value());
+    ASSERT(type_die_offset.value().type == Dwarf::DIE::AttributeValue::Type::DieReference);
+    auto type_die = variable_die.get_die_at_offset(type_die_offset.value().data.as_u32);
+    auto type_name = type_die.get_attribute(Dwarf::Attribute::Name);
+    if (type_name.has_value()) {
+        variable_info.type = type_name.value().data.as_string;
+    } else {
+        dbg() << "Complex DWRAF type at offset: " << type_die.offset();
+        variable_info.name = "[Complex Type]";
+    }
+    return variable_info;
 }
 
 void DebugInfo::parse_scopes_impl(const Dwarf::DIE& die)
@@ -60,11 +72,11 @@ void DebugInfo::parse_scopes_impl(const Dwarf::DIE& die)
             return;
         if (child.tag() == Dwarf::EntryTag::SubProgram || child.tag() == Dwarf::EntryTag::LexicalBlock) {
             if (child.get_attribute(Dwarf::Attribute::Inline).has_value()) {
-                // We currently do not support inlined functions
+                dbg() << "DWARF inlined functions are not supported";
                 return;
             }
             if (child.get_attribute(Dwarf::Attribute::Ranges).has_value()) {
-                // We currently do not support ranges
+                dbg() << "DWARF ranges are not supported";
                 return;
             }
             dbg() << "low pc: " << (void*)child.get_attribute(Dwarf::Attribute::LowPc).value().data.as_u32;
@@ -82,10 +94,7 @@ void DebugInfo::parse_scopes_impl(const Dwarf::DIE& die)
             child.for_each_child([&](const Dwarf::DIE& variable_entry) {
                 if (variable_entry.tag() != Dwarf::EntryTag::Variable)
                     return;
-                VariableInfo variable_info {};
-                variable_info.name = variable_entry.get_attribute(Dwarf::Attribute::Name).value().data.as_string;
-                dbg() << "variable: " << variable_info.name;
-                scope.variables.append(variable_info);
+                scope.variables.append(create_variable_info(variable_entry));
             });
             m_scopes.append(scope);
 

@@ -74,6 +74,8 @@ public:
 
     bool is_null() const { return m_tag == EntryTag::None; }
 
+    DIE get_die_at_offset(u32 offset) const;
+
 private:
     AttributeValue get_attribute_value(AttributeDataForm form,
         BufferStream& debug_info_stream) const;

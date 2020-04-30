@@ -50,6 +50,7 @@ enum class Attribute : u32 {
     LowPc = 0x11,
     HighPc = 0x12,
     Inline = 0x20,
+    Type = 0x49,
     Ranges = 0x55,
 };
 

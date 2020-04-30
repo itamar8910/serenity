@@ -88,6 +88,7 @@ private:
     void prepare_variable_scopes();
     void prepare_lines();
     void parse_scopes_impl(const Dwarf::DIE& die);
+    VariableInfo create_variable_info(const Dwarf::DIE& variable_die);
 
     NonnullRefPtr<const ELF::Loader> m_elf;
 
