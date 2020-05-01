@@ -26,6 +26,7 @@
 
 #include "DebugInfoWidget.h"
 #include "Debugger.h"
+#include <AK/StringBuilder.h>
 #include <LibGUI/BoxLayout.h>
 #include <LibGUI/Model.h>
 #include <LibGUI/TableView.h>
@@ -70,7 +71,14 @@ GUI::Variant DebugInfoModel::data(const GUI::ModelIndex& index, Role role) const
                 ASSERT(value.has_value());
                 return static_cast<char>(value.value());
             } else {
-                return String::format("*(%08x)", variable_address);
+                // TODO: use a TreeView
+                StringBuilder description;
+                description.append(String::format("address: %08x, ", variable_address));
+                for (const auto& member : variable.members) {
+                    auto value = Debugger::the().session()->peek((u32*)member.location_data.address);
+                    description.append(String::format("%s: %d, ", member.name.characters(), value.value()));
+                }
+                return description.to_string();
             }
         }
         }
