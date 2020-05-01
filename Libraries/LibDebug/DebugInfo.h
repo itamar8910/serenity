@@ -26,6 +26,7 @@
 
 #pragma once
 
+#include <AK/NonnullOwnPtrVector.h>
 #include <AK/NonnullRefPtr.h>
 #include <AK/Optional.h>
 #include <AK/Vector.h>
@@ -60,6 +61,8 @@ public:
         union {
             u32 address;
         } location_data { 0 };
+
+        NonnullOwnPtrVector<VariableInfo> members;
     };
 
     struct VariablesScope {

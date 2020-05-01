@@ -129,10 +129,6 @@ int Debugger::debugger_loop()
         }
         ASSERT(optional_regs.has_value());
         const PtraceRegisters& regs = optional_regs.value();
-        // auto source_position = m_debug_session->debug_info().get_source_position(regs.eip);
-        // if (!source_position.has_value()) {
-        //     return DebugSession::DebugDecision::Continue;
-        // }
 
         if (in_single_step_mode) {
             for (auto address : temporary_breakpoints) {
@@ -142,15 +138,7 @@ int Debugger::debugger_loop()
             in_single_step_mode = false;
         }
 
-        // dbg() << "Debugee stopped @ " << source_position.value().file_path << ":" << source_position.value().line_number;
         m_on_stopped_callback(regs);
-
-        // auto scope_info = m_debug_session->debug_info().get_scope_info(regs.eip);
-        // ASSERT(scope_info.has_value());
-        // dbg() << "scope name: " << (scope_info.value().name.has_value() ? scope_info.value().name.value() : "[Unnamed]");
-        // for (const auto& var : scope_info.value().variables) {
-        //     dbg() << "var: " << var.name;
-        // }
 
         pthread_mutex_lock(&m_continue_mutex);
         pthread_cond_wait(&m_continue_cond, &m_continue_mutex);

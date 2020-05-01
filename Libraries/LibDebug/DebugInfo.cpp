@@ -173,7 +173,7 @@ Optional<DebugInfo::VariablesScope> DebugInfo::get_scope(u32 instruction_pointer
 
 DebugInfo::VariableInfo DebugInfo::create_variable_info(const Dwarf::DIE& variable_die, const PtraceRegisters& regs) const
 {
-    ASSERT(variable_die.tag() == Dwarf::EntryTag::Variable);
+    ASSERT(variable_die.tag() == Dwarf::EntryTag::Variable || variable_die.tag() == Dwarf::EntryTag::Member);
 
     VariableInfo variable_info {};
     variable_info.name = variable_die.get_attribute(Dwarf::Attribute::Name).value().data.as_string;
@@ -186,20 +186,39 @@ DebugInfo::VariableInfo DebugInfo::create_variable_info(const Dwarf::DIE& variab
     if (type_name.has_value()) {
         variable_info.type = type_name.value().data.as_string;
     } else {
-        dbg() << "Complex DWRAF type at offset: " << type_die.offset();
-        variable_info.name = "[Complex Type]";
+        dbg() << "Unnamed DWRAF type at offset: " << type_die.offset();
+        variable_info.name = "[Unnamed Type]";
     }
 
     auto location_info = variable_die.get_attribute(Dwarf::Attribute::Location);
-    if (location_info.has_value() && location_info.value().type == Dwarf::DIE::AttributeValue::Type::DwarfExpression) {
-        auto expression_bytes = ByteBuffer::wrap(location_info.value().data.as_dwarf_expression.bytes, location_info.value().data.as_dwarf_expression.length);
-        auto value = Dwarf::Expression::evaluate(expression_bytes, regs);
-        if (value.type != Dwarf::Expression::Type::None) {
-            ASSERT(value.type == Dwarf::Expression::Type::UnsignedIntetger);
+    if (!location_info.has_value()) {
+        location_info = variable_die.get_attribute(Dwarf::Attribute::MemberLocation);
+    }
+    if (location_info.has_value()) {
+        if (location_info.value().type == Dwarf::DIE::AttributeValue::Type::UnsignedNumber) {
             variable_info.location_type = VariableInfo::LocationType::Address;
-            variable_info.location_data.address = value.data.as_u32;
+            variable_info.location_data.address = location_info.value().data.as_u32;
+        }
+        if (location_info.value().type == Dwarf::DIE::AttributeValue::Type::DwarfExpression) {
+            auto expression_bytes = ByteBuffer::wrap(location_info.value().data.as_dwarf_expression.bytes, location_info.value().data.as_dwarf_expression.length);
+            auto value = Dwarf::Expression::evaluate(expression_bytes, regs);
+            if (value.type != Dwarf::Expression::Type::None) {
+                ASSERT(value.type == Dwarf::Expression::Type::UnsignedIntetger);
+                variable_info.location_type = VariableInfo::LocationType::Address;
+                variable_info.location_data.address = value.data.as_u32;
+            }
         }
     }
+
+    type_die.for_each_child([&](const Dwarf::DIE& member) {
+        if (member.is_null())
+            return;
+        auto member_variable = create_variable_info(member, regs);
+        ASSERT(member_variable.location_type == DebugInfo::VariableInfo::LocationType::Address);
+        ASSERT(variable_info.location_type == DebugInfo::VariableInfo::LocationType::Address);
+        member_variable.location_data.address += variable_info.location_data.address;
+        variable_info.members.append(make<VariableInfo>(move(member_variable)));
+    });
 
     return variable_info;
 }

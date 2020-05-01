@@ -14,9 +14,17 @@ int main(int, char**)
     return 0;
 }
 
+struct Foobar{
+    int a;
+    int b;
+};
+
 int foo(){
     int x = 1;
     char y = 2;
     x = x + (int)y;
-    return x;
+    Foobar fb;
+    fb.a = -2;
+    fb.b = 6;
+    return x + fb.a * fb.b;
 }
