@@ -63,6 +63,7 @@ public:
         } location_data { 0 };
 
         NonnullOwnPtrVector<VariableInfo> members;
+        VariableInfo* parent;
     };
 
     struct VariablesScope {
@@ -73,7 +74,7 @@ public:
         Vector<Dwarf::DIE> dies_of_variables;
     };
 
-    Vector<VariableInfo> get_variables_in_current_scope(const PtraceRegisters&) const;
+    NonnullOwnPtrVector<VariableInfo> get_variables_in_current_scope(const PtraceRegisters&) const;
 
     Optional<SourcePosition> get_source_position(u32 address) const;
     Optional<u32> get_instruction_from_source(const String& file, size_t line) const;
@@ -97,7 +98,7 @@ private:
     void prepare_lines();
     void parse_scopes_impl(const Dwarf::DIE& die);
     Optional<VariablesScope> get_scope(u32 instruction_pointer) const;
-    VariableInfo create_variable_info(const Dwarf::DIE& variable_die, const PtraceRegisters&) const;
+    NonnullOwnPtr<VariableInfo> create_variable_info(const Dwarf::DIE& variable_die, const PtraceRegisters&) const;
 
     NonnullRefPtr<const ELF::Loader> m_elf;
     NonnullRefPtr<Dwarf::DwarfInfo> m_dwarf_info;

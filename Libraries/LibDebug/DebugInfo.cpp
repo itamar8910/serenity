@@ -139,13 +139,13 @@ Optional<u32> DebugInfo::get_instruction_from_source(const String& file, size_t 
     return {};
 }
 
-Vector<DebugInfo::VariableInfo> DebugInfo::get_variables_in_current_scope(const PtraceRegisters& regs) const
+NonnullOwnPtrVector<DebugInfo::VariableInfo> DebugInfo::get_variables_in_current_scope(const PtraceRegisters& regs) const
 {
     auto scope = get_scope(regs.eip);
     if (!scope.has_value())
         return {};
 
-    Vector<DebugInfo::VariableInfo> variables;
+    NonnullOwnPtrVector<DebugInfo::VariableInfo> variables;
     for (const auto& die_entry : scope.value().dies_of_variables) {
         variables.append(create_variable_info(die_entry, regs));
     }
@@ -171,23 +171,24 @@ Optional<DebugInfo::VariablesScope> DebugInfo::get_scope(u32 instruction_pointer
     return best_matching_scope;
 }
 
-DebugInfo::VariableInfo DebugInfo::create_variable_info(const Dwarf::DIE& variable_die, const PtraceRegisters& regs) const
+NonnullOwnPtr<DebugInfo::VariableInfo> DebugInfo::create_variable_info(const Dwarf::DIE& variable_die, const PtraceRegisters& regs) const
 {
     ASSERT(variable_die.tag() == Dwarf::EntryTag::Variable || variable_die.tag() == Dwarf::EntryTag::Member);
 
-    VariableInfo variable_info {};
-    variable_info.name = variable_die.get_attribute(Dwarf::Attribute::Name).value().data.as_string;
-    dbg() << "Variable: " << variable_info.name;
+    NonnullOwnPtr<VariableInfo> variable_info = make<VariableInfo>();
+
+    variable_info->name = variable_die.get_attribute(Dwarf::Attribute::Name).value().data.as_string;
+    dbg() << "Variable: " << variable_info->name;
     auto type_die_offset = variable_die.get_attribute(Dwarf::Attribute::Type);
     ASSERT(type_die_offset.has_value());
     ASSERT(type_die_offset.value().type == Dwarf::DIE::AttributeValue::Type::DieReference);
     auto type_die = variable_die.get_die_at_offset(type_die_offset.value().data.as_u32);
     auto type_name = type_die.get_attribute(Dwarf::Attribute::Name);
     if (type_name.has_value()) {
-        variable_info.type = type_name.value().data.as_string;
+        variable_info->type = type_name.value().data.as_string;
     } else {
         dbg() << "Unnamed DWRAF type at offset: " << type_die.offset();
-        variable_info.name = "[Unnamed Type]";
+        variable_info->name = "[Unnamed Type]";
     }
 
     auto location_info = variable_die.get_attribute(Dwarf::Attribute::Location);
@@ -196,16 +197,16 @@ DebugInfo::VariableInfo DebugInfo::create_variable_info(const Dwarf::DIE& variab
     }
     if (location_info.has_value()) {
         if (location_info.value().type == Dwarf::DIE::AttributeValue::Type::UnsignedNumber) {
-            variable_info.location_type = VariableInfo::LocationType::Address;
-            variable_info.location_data.address = location_info.value().data.as_u32;
+            variable_info->location_type = VariableInfo::LocationType::Address;
+            variable_info->location_data.address = location_info.value().data.as_u32;
         }
         if (location_info.value().type == Dwarf::DIE::AttributeValue::Type::DwarfExpression) {
             auto expression_bytes = ByteBuffer::wrap(location_info.value().data.as_dwarf_expression.bytes, location_info.value().data.as_dwarf_expression.length);
             auto value = Dwarf::Expression::evaluate(expression_bytes, regs);
             if (value.type != Dwarf::Expression::Type::None) {
                 ASSERT(value.type == Dwarf::Expression::Type::UnsignedIntetger);
-                variable_info.location_type = VariableInfo::LocationType::Address;
-                variable_info.location_data.address = value.data.as_u32;
+                variable_info->location_type = VariableInfo::LocationType::Address;
+                variable_info->location_data.address = value.data.as_u32;
             }
         }
     }
@@ -214,10 +215,11 @@ DebugInfo::VariableInfo DebugInfo::create_variable_info(const Dwarf::DIE& variab
         if (member.is_null())
             return;
         auto member_variable = create_variable_info(member, regs);
-        ASSERT(member_variable.location_type == DebugInfo::VariableInfo::LocationType::Address);
-        ASSERT(variable_info.location_type == DebugInfo::VariableInfo::LocationType::Address);
-        member_variable.location_data.address += variable_info.location_data.address;
-        variable_info.members.append(make<VariableInfo>(move(member_variable)));
+        ASSERT(member_variable->location_type == DebugInfo::VariableInfo::LocationType::Address);
+        ASSERT(variable_info->location_type == DebugInfo::VariableInfo::LocationType::Address);
+        member_variable->location_data.address += variable_info->location_data.address;
+        member_variable->parent = variable_info.ptr();
+        variable_info->members.append(move(member_variable));
     });
 
     return variable_info;
