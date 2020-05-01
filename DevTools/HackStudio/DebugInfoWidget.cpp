@@ -54,9 +54,9 @@ GUI::Variant DebugInfoModel::data(const GUI::ModelIndex& index, Role role) const
         case Column::VariableType:
             return variable.type;
         case Column::VariableValue: {
-            if (variable.location_type != DebugInfo::VariableInfo::LocationType::FramePointerRelative)
+            if (variable.location_type != DebugInfo::VariableInfo::LocationType::Address)
                 return "N/A";
-            u32 variable_address = m_regs.ebp + 2 * sizeof(size_t) + variable.location_data.as_i32;
+            auto variable_address = variable.location_data.address;
             dbg() << "variable name: " << variable.name;
             dbg() << "variable address: " << (void*)variable_address;
             if (variable.type == "int") {
@@ -80,12 +80,7 @@ GUI::Variant DebugInfoModel::data(const GUI::ModelIndex& index, Role role) const
 
 static RefPtr<DebugInfoModel> create_model(const PtraceRegisters& regs)
 {
-    Vector<DebugInfo::VariableInfo> variables;
-    auto scope_info = Debugger::the().session()->debug_info().get_scope_info(regs.eip);
-    ASSERT(scope_info.has_value());
-    for (const auto& var : scope_info.value().variables) {
-        variables.append(var);
-    }
+    auto variables = Debugger::the().session()->debug_info().get_variables_in_current_scope(regs);
     return adopt(*new DebugInfoModel(move(variables), regs));
 }
 

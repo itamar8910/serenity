@@ -32,6 +32,7 @@
 
 DebugInfo::DebugInfo(NonnullRefPtr<const ELF::Loader> elf)
     : m_elf(elf)
+    , m_dwarf_info(Dwarf::DwarfInfo::create(m_elf))
 {
     prepare_variable_scopes();
     prepare_lines();
@@ -39,44 +40,10 @@ DebugInfo::DebugInfo(NonnullRefPtr<const ELF::Loader> elf)
 
 void DebugInfo::prepare_variable_scopes()
 {
-    auto dwarf_info = Dwarf::DwarfInfo::create(m_elf);
-    dwarf_info->for_each_compilation_unit([&](const Dwarf::CompilationUnit& unit) {
+    m_dwarf_info->for_each_compilation_unit([&](const Dwarf::CompilationUnit& unit) {
         auto root = unit.root_die();
         parse_scopes_impl(root);
     });
-}
-
-DebugInfo::VariableInfo DebugInfo::create_variable_info(const Dwarf::DIE& variable_die)
-{
-    ASSERT(variable_die.tag() == Dwarf::EntryTag::Variable);
-
-    VariableInfo variable_info {};
-    variable_info.name = variable_die.get_attribute(Dwarf::Attribute::Name).value().data.as_string;
-    dbg() << "Variable: " << variable_info.name;
-    auto type_die_offset = variable_die.get_attribute(Dwarf::Attribute::Type);
-    ASSERT(type_die_offset.has_value());
-    ASSERT(type_die_offset.value().type == Dwarf::DIE::AttributeValue::Type::DieReference);
-    auto type_die = variable_die.get_die_at_offset(type_die_offset.value().data.as_u32);
-    auto type_name = type_die.get_attribute(Dwarf::Attribute::Name);
-    if (type_name.has_value()) {
-        variable_info.type = type_name.value().data.as_string;
-    } else {
-        dbg() << "Complex DWRAF type at offset: " << type_die.offset();
-        variable_info.name = "[Complex Type]";
-    }
-
-    auto location_info = variable_die.get_attribute(Dwarf::Attribute::Location);
-    if (location_info.has_value() && location_info.value().type == Dwarf::DIE::AttributeValue::Type::DwarfExpression) {
-        auto expression_bytes = ByteBuffer::wrap(location_info.value().data.as_dwarf_expression.bytes, location_info.value().data.as_dwarf_expression.length);
-        auto value = Dwarf::Expression::evaluate(expression_bytes);
-        if (value.type != Dwarf::Expression::Type::None) {
-            ASSERT(value.type == Dwarf::Expression::Type::FrameRegister);
-            variable_info.location_type = VariableInfo::LocationType::FramePointerRelative;
-            variable_info.location_data.as_i32 = value.data.as_i32;
-        }
-    }
-
-    return variable_info;
 }
 
 void DebugInfo::parse_scopes_impl(const Dwarf::DIE& die)
@@ -108,7 +75,8 @@ void DebugInfo::parse_scopes_impl(const Dwarf::DIE& die)
             child.for_each_child([&](const Dwarf::DIE& variable_entry) {
                 if (variable_entry.tag() != Dwarf::EntryTag::Variable)
                     return;
-                scope.variables.append(create_variable_info(variable_entry));
+                // scope.variables.append(create_variable_info(variable_entry));
+                scope.dies_of_variables.append(variable_entry);
             });
             m_scopes.append(scope);
 
@@ -171,13 +139,26 @@ Optional<u32> DebugInfo::get_instruction_from_source(const String& file, size_t 
     return {};
 }
 
-Optional<DebugInfo::VariablesScope> DebugInfo::get_scope_info(u32 address) const
+Vector<DebugInfo::VariableInfo> DebugInfo::get_variables_in_current_scope(const PtraceRegisters& regs) const
 {
-    // TODO: We can store the scopes in a better data strucutre
+    auto scope = get_scope(regs.eip);
+    if (!scope.has_value())
+        return {};
+
+    Vector<DebugInfo::VariableInfo> variables;
+    for (const auto& die_entry : scope.value().dies_of_variables) {
+        variables.append(create_variable_info(die_entry, regs));
+    }
+    return variables;
+}
+
+Optional<DebugInfo::VariablesScope> DebugInfo::get_scope(u32 instruction_pointer) const
+{
     Optional<VariablesScope> best_matching_scope;
 
+    // TODO: We can store the scopes in a better data strucutre
     for (const auto& scope : m_scopes) {
-        if (scope.address_low <= address && scope.address_high > address) {
+        if (scope.address_low <= instruction_pointer && scope.address_high > instruction_pointer) {
 
             if (!best_matching_scope.has_value()) {
                 best_matching_scope = scope;
@@ -188,4 +169,37 @@ Optional<DebugInfo::VariablesScope> DebugInfo::get_scope_info(u32 address) const
         }
     }
     return best_matching_scope;
+}
+
+DebugInfo::VariableInfo DebugInfo::create_variable_info(const Dwarf::DIE& variable_die, const PtraceRegisters& regs) const
+{
+    ASSERT(variable_die.tag() == Dwarf::EntryTag::Variable);
+
+    VariableInfo variable_info {};
+    variable_info.name = variable_die.get_attribute(Dwarf::Attribute::Name).value().data.as_string;
+    dbg() << "Variable: " << variable_info.name;
+    auto type_die_offset = variable_die.get_attribute(Dwarf::Attribute::Type);
+    ASSERT(type_die_offset.has_value());
+    ASSERT(type_die_offset.value().type == Dwarf::DIE::AttributeValue::Type::DieReference);
+    auto type_die = variable_die.get_die_at_offset(type_die_offset.value().data.as_u32);
+    auto type_name = type_die.get_attribute(Dwarf::Attribute::Name);
+    if (type_name.has_value()) {
+        variable_info.type = type_name.value().data.as_string;
+    } else {
+        dbg() << "Complex DWRAF type at offset: " << type_die.offset();
+        variable_info.name = "[Complex Type]";
+    }
+
+    auto location_info = variable_die.get_attribute(Dwarf::Attribute::Location);
+    if (location_info.has_value() && location_info.value().type == Dwarf::DIE::AttributeValue::Type::DwarfExpression) {
+        auto expression_bytes = ByteBuffer::wrap(location_info.value().data.as_dwarf_expression.bytes, location_info.value().data.as_dwarf_expression.length);
+        auto value = Dwarf::Expression::evaluate(expression_bytes, regs);
+        if (value.type != Dwarf::Expression::Type::None) {
+            ASSERT(value.type == Dwarf::Expression::Type::UnsignedIntetger);
+            variable_info.location_type = VariableInfo::LocationType::Address;
+            variable_info.location_data.address = value.data.as_u32;
+        }
+    }
+
+    return variable_info;
 }

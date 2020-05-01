@@ -29,9 +29,11 @@
 #include <AK/NonnullRefPtr.h>
 #include <AK/Optional.h>
 #include <AK/Vector.h>
+#include <LibDebug/Dwarf/DwarfInfo.h>
 #include <LibELF/Loader.h>
 #include <Libraries/LibDebug/Dwarf/DIE.h>
 #include <Libraries/LibDebug/Dwarf/LineProgram.h>
+#include <sys/arch/i386/regs.h>
 
 class DebugInfo {
 public:
@@ -49,15 +51,14 @@ public:
     struct VariableInfo {
         enum class LocationType {
             None,
-            FramePointerRelative,
-            Absolute,
+            Address,
+            Regsiter,
         };
         String name;
         String type;
         LocationType location_type { LocationType::None };
         union {
-            i32 as_i32;
-            u32 as_u32;
+            u32 address;
         } location_data { 0 };
     };
 
@@ -66,10 +67,10 @@ public:
         Optional<String> name;
         u32 address_low { 0 };
         u32 address_high { 0 };
-        Vector<VariableInfo> variables;
+        Vector<Dwarf::DIE> dies_of_variables;
     };
 
-    Optional<VariablesScope> get_scope_info(u32 address) const;
+    Vector<VariableInfo> get_variables_in_current_scope(const PtraceRegisters&) const;
 
     Optional<SourcePosition> get_source_position(u32 address) const;
     Optional<u32> get_instruction_from_source(const String& file, size_t line) const;
@@ -92,9 +93,11 @@ private:
     void prepare_variable_scopes();
     void prepare_lines();
     void parse_scopes_impl(const Dwarf::DIE& die);
-    VariableInfo create_variable_info(const Dwarf::DIE& variable_die);
+    Optional<VariablesScope> get_scope(u32 instruction_pointer) const;
+    VariableInfo create_variable_info(const Dwarf::DIE& variable_die, const PtraceRegisters&) const;
 
     NonnullRefPtr<const ELF::Loader> m_elf;
+    NonnullRefPtr<Dwarf::DwarfInfo> m_dwarf_info;
 
     Vector<VariablesScope> m_scopes;
     Vector<LineProgram::LineInfo> m_sorted_lines;

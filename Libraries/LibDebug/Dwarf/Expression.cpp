@@ -25,11 +25,12 @@
  */
 #include "Expression.h"
 #include <AK/BufferStream.h>
+#include <sys/arch/i386/regs.h>
 
 namespace Dwarf {
 namespace Expression {
 
-Value evaluate(const ByteBuffer& bytes)
+Value evaluate(const ByteBuffer& bytes, const PtraceRegisters& regs)
 {
     // TODO: we need a BufferStream variant that takes a const ByteBuffer
     BufferStream stream(const_cast<ByteBuffer&>(bytes));
@@ -38,12 +39,15 @@ Value evaluate(const ByteBuffer& bytes)
         u8 opcode = 0;
         stream >> opcode;
         switch (static_cast<Operations>(opcode)) {
-        case Operations::RegEbp:
-            [[fallthrough]];
+        case Operations::RegEbp: {
+            int offset = 0;
+            stream.read_LEB128_signed(offset);
+            return Value { Type::UnsignedIntetger, regs.ebp + offset };
+        }
         case Operations::FbReg: {
             int offset = 0;
             stream.read_LEB128_signed(offset);
-            return Value { Type::FrameRegister, offset };
+            return Value { Type::UnsignedIntetger, regs.ebp + 2 * sizeof(size_t) + offset };
         }
         default:
             dbg() << "expr addr: " << (const void*)bytes.data();

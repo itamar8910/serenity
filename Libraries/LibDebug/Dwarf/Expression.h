@@ -28,17 +28,20 @@
 #include "AK/ByteBuffer.h"
 #include "AK/Types.h"
 
+class PtraceRegisters;
+
 namespace Dwarf {
 namespace Expression {
 enum class Type {
     None,
-    FrameRegister,
+    UnsignedIntetger,
+    Register,
 };
 
 struct Value {
     Type type;
     union {
-        i32 as_i32;
+        u32 as_u32;
     } data { 0 };
 };
 
@@ -47,7 +50,7 @@ enum class Operations : u8 {
     FbReg = 0x91,
 };
 
-Value evaluate(const ByteBuffer&);
+Value evaluate(const ByteBuffer&, const PtraceRegisters&);
 
 };
 };
