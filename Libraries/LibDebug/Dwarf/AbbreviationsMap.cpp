@@ -44,7 +44,6 @@ void AbbreviationsMap::populate_map()
     while (!abbreviation_stream.at_end()) {
         size_t abbreviation_code = 0;
         abbreviation_stream.read_LEB128_unsigned(abbreviation_code);
-        dbg() << "Abbrev code: " << abbreviation_code;
         // An abbrevation code of 0 marks the end of the
         // abbrevations for a given compilation unit
         if (abbreviation_code == 0)

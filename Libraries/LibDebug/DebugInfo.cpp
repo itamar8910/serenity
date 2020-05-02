@@ -60,17 +60,14 @@ void DebugInfo::parse_scopes_impl(const Dwarf::DIE& die)
                 dbg() << "DWARF ranges are not supported";
                 return;
             }
-            dbg() << "low pc: " << (void*)child.get_attribute(Dwarf::Attribute::LowPc).value().data.as_u32;
-            dbg() << "high pc: " << (void*)child.get_attribute(Dwarf::Attribute::HighPc).value().data.as_u32;
             auto name = child.get_attribute(Dwarf::Attribute::Name);
 
             VariablesScope scope {};
             scope.is_function = (child.tag() == Dwarf::EntryTag::SubProgram);
             if (name.has_value())
                 scope.name = name.value().data.as_string;
-            dbg() << "scope name: " << (scope.name.has_value() ? scope.name.value() : "[Unnamed]");
             scope.address_low = child.get_attribute(Dwarf::Attribute::LowPc).value().data.as_u32;
-            // Yes, the attribute name HighPc is confusing - it seems to actually be a positive offset from LowPc
+            // The attribute name HighPc is confusing - it seems to actually be a positive offset from LowPc
             scope.address_high = scope.address_low + child.get_attribute(Dwarf::Attribute::HighPc).value().data.as_u32;
             child.for_each_child([&](const Dwarf::DIE& variable_entry) {
                 if (variable_entry.tag() != Dwarf::EntryTag::Variable)
@@ -178,7 +175,6 @@ NonnullOwnPtr<DebugInfo::VariableInfo> DebugInfo::create_variable_info(const Dwa
     NonnullOwnPtr<VariableInfo> variable_info = make<VariableInfo>();
 
     variable_info->name = variable_die.get_attribute(Dwarf::Attribute::Name).value().data.as_string;
-    dbg() << "Variable: " << variable_info->name;
     auto type_die_offset = variable_die.get_attribute(Dwarf::Attribute::Type);
     ASSERT(type_die_offset.has_value());
     ASSERT(type_die_offset.value().type == Dwarf::DIE::AttributeValue::Type::DieReference);

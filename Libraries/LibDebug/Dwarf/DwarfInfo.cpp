@@ -53,7 +53,6 @@ void DwarfInfo::populate_compilation_units()
     // TOOD: We could add to AK a variant of BufferStream that operates on a const ByteBuffer
     BufferStream stream(const_cast<ByteBuffer&>(m_debug_info_data));
     while (!stream.at_end()) {
-        dbg() << "CU Offset: " << (void*)stream.offset();
         auto unit_offset = stream.offset();
         CompilationUnitHeader compilation_unit_header {};
         stream.read_raw(reinterpret_cast<u8*>(&compilation_unit_header), sizeof(CompilationUnitHeader));

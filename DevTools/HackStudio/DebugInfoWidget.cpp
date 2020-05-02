@@ -77,13 +77,10 @@ String variable_value_as_string(const DebugInfo::VariableInfo& variable)
         return "N/A";
 
     auto variable_address = variable.location_data.address;
-    dbg() << "variable name: " << variable.name;
-    dbg() << "variable address: " << (void*)variable_address;
 
     if (variable.type == "int") {
         auto value = Debugger::the().session()->peek((u32*)variable_address);
         ASSERT(value.has_value());
-        dbg() << "int val: " << (void*)value.value();
         return String::format("%d", static_cast<int>(value.value()));
     }
 
