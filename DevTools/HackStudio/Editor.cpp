@@ -386,6 +386,7 @@ void Editor::navigate_to_include_if_available(String path)
 void Editor::set_execution_position(size_t line_number)
 {
     m_execution_position = line_number;
+    scroll_position_into_view({ line_number, 0 });
     update(breakpoint_icon_rect(line_number));
 }
 

@@ -510,7 +510,6 @@ int main(int argc, char** argv)
     auto& find_in_files_widget = s_action_tab_widget->add_tab<FindInFilesWidget>("Find in files");
     auto& terminal_wrapper = s_action_tab_widget->add_tab<TerminalWrapper>("Build", false);
     auto& debug_info_widget = s_action_tab_widget->add_tab<DebugInfoWidget>("Debug");
-    (void)debug_info_widget;
 
     auto& locator = widget.add<Locator>();
 
@@ -615,6 +614,7 @@ int main(int argc, char** argv)
             debug_info_widget.update_variables(regs);
             continue_action->set_enabled(true);
             single_step_action->set_enabled(true);
+            reveal_action_tab(debug_info_widget);
         },
         [&]() {
             dbg() << "Program continued";
