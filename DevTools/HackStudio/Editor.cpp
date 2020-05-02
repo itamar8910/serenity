@@ -83,6 +83,9 @@ void Editor::focusout_event(Core::Event& event)
 Gfx::Rect Editor::breakpoint_icon_rect(size_t line_number) const
 {
     auto ruler_line_rect = ruler_content_rect(line_number);
+
+    auto scroll_value = vertical_scrollbar().value();
+    ruler_line_rect = ruler_line_rect.translated({ 0, -scroll_value });
     auto center = ruler_line_rect.center().translated({ ruler_line_rect.width() - 10, -line_spacing() - 3 });
     constexpr int size = 32;
     return { center.x() - size / 2, center.y() - size / 2, size, size };
