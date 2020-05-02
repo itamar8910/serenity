@@ -87,7 +87,7 @@ String variable_value_as_string(const DebugInfo::VariableInfo& variable)
     if (variable.type == "char") {
         auto value = Debugger::the().session()->peek((u32*)variable_address);
         ASSERT(value.has_value());
-        return String::format("%d", static_cast<char>(value.value()));
+        return String::format("'%c' (%d)", static_cast<char>(value.value()), static_cast<char>(value.value()));
     }
 
     return String::format("address: %08x, ", variable_address);
