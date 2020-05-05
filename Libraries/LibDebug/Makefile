@@ -2,11 +2,6 @@ OBJS = \
     DebugSession.o \
 	DebugInfo.o \
 	Dwarf/LineProgram.o \
-	Dwarf/DwarfInfo.o \
-	Dwarf/CompilationUnit.o \
-	Dwarf/AbbreviationsMap.o \
-	Dwarf/Expression.o \
-	Dwarf/DIE.o \
 
 
 LIBRARY = libdebug.a
