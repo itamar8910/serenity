@@ -25,7 +25,6 @@
  */
 
 #include "CursorTool.h"
-#include "DebugInfoWidget.h"
 #include "Debugger.h"
 #include "Editor.h"
 #include "EditorWrapper.h"
@@ -509,7 +508,6 @@ int main(int argc, char** argv)
 
     auto& find_in_files_widget = s_action_tab_widget->add_tab<FindInFilesWidget>("Find in files");
     auto& terminal_wrapper = s_action_tab_widget->add_tab<TerminalWrapper>("Build", false);
-    auto& debug_info_widget = s_action_tab_widget->add_tab<DebugInfoWidget>("Debug");
 
     auto& locator = widget.add<Locator>();
 
@@ -604,17 +602,12 @@ int main(int argc, char** argv)
 
     RefPtr<EditorWrapper> current_editor_in_execution;
     Debugger::initialize(
-        [&](const PtraceRegisters& regs) {
+        [&](DebugInfo::SourcePosition source_position) {
             dbg() << "Program stopped";
-
-            auto source_position = Debugger::the().session()->debug_info().get_source_position(regs.eip);
-            ASSERT(source_position.has_value());
-            current_editor_in_execution = get_editor_of_file(source_position.value().file_path);
-            current_editor_in_execution->editor().set_execution_position(source_position.value().line_number - 1);
-            debug_info_widget.update_variables(regs);
+            current_editor_in_execution = get_editor_of_file(source_position.file_path);
+            current_editor_in_execution->editor().set_execution_position(source_position.line_number - 1);
             continue_action->set_enabled(true);
             single_step_action->set_enabled(true);
-            reveal_action_tab(debug_info_widget);
         },
         [&]() {
             dbg() << "Program continued";

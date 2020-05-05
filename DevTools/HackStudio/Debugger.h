@@ -26,7 +26,6 @@
  */
 
 #pragma once
-
 #include "BreakpointCallback.h"
 #include <AK/Function.h>
 #include <AK/Vector.h>
@@ -38,7 +37,7 @@ class Debugger {
 public:
     static Debugger& the();
     static void initialize(
-        Function<void(const PtraceRegisters&)> on_stop_callback,
+        Function<void(DebugInfo::SourcePosition)> on_stop_callback,
         Function<void()> on_continue_callback,
         Function<void()> on_exit_callback);
 
@@ -66,7 +65,7 @@ public:
 
 private:
     explicit Debugger(
-        Function<void(const PtraceRegisters&)> on_stop_callback,
+        Function<void(DebugInfo::SourcePosition)> on_stop_callback,
         Function<void()> on_continue_callback,
         Function<void()> on_exit_callback);
 
@@ -83,7 +82,7 @@ private:
     Vector<DebugInfo::SourcePosition> m_breakpoints;
     String m_executable_path;
 
-    Function<void(const PtraceRegisters&)> m_on_stopped_callback;
+    Function<void(DebugInfo::SourcePosition)> m_on_stopped_callback;
     Function<void()> m_on_continue_callback;
     Function<void()> m_on_exit_callback;
 
