@@ -30,6 +30,7 @@
 #include <AK/BufferStream.h>
 #include <AK/ByteBuffer.h>
 #include <AK/NonnullRefPtr.h>
+#include <AK/Optional.h>
 #include <AK/RefCounted.h>
 #include <AK/String.h>
 #include <Libraries/LibELF/Loader.h>
@@ -40,9 +41,9 @@ class DwarfInfo : public RefCounted<DwarfInfo> {
 public:
     static NonnullRefPtr<DwarfInfo> create(NonnullRefPtr<const ELF::Loader> elf) { return adopt(*new DwarfInfo(move(elf))); }
 
-    const ByteBuffer& debug_info_data() const { return m_debug_info_data; }
-    const ByteBuffer& abbreviation_data() const { return m_abbreviation_data; }
-    const ByteBuffer& debug_strings_data() const { return m_debug_strings_data; }
+    const ByteBuffer& debug_info_data() const { return m_debug_info_data.value(); }
+    const ByteBuffer& abbreviation_data() const { return m_abbreviation_data.value(); }
+    const ByteBuffer& debug_strings_data() const { return m_debug_strings_data.value(); }
 
     template<typename Callback>
     void for_each_compilation_unit(Callback) const;
@@ -51,12 +52,12 @@ private:
     explicit DwarfInfo(NonnullRefPtr<const ELF::Loader> elf);
     void populate_compilation_units();
 
-    ByteBuffer section_data(const String& section_name);
+    Optional<ByteBuffer> section_data(const String& section_name);
 
     NonnullRefPtr<const ELF::Loader> m_elf;
-    ByteBuffer m_debug_info_data;
-    ByteBuffer m_abbreviation_data;
-    ByteBuffer m_debug_strings_data;
+    Optional<ByteBuffer> m_debug_info_data;
+    Optional<ByteBuffer> m_abbreviation_data;
+    Optional<ByteBuffer> m_debug_strings_data;
 
     Vector<Dwarf::CompilationUnit> m_compilation_units;
 };

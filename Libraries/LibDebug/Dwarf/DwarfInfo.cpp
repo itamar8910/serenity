@@ -38,20 +38,23 @@ DwarfInfo::DwarfInfo(NonnullRefPtr<const ELF::Loader> elf)
     populate_compilation_units();
 }
 
-ByteBuffer DwarfInfo::section_data(const String& section_name)
+Optional<ByteBuffer> DwarfInfo::section_data(const String& section_name)
 {
     auto section = m_elf->image().lookup_section(section_name);
-    ASSERT(!section.is_undefined());
+    if (section.is_undefined())
+        return {};
     return section.wrapping_byte_buffer();
 }
 
 void DwarfInfo::populate_compilation_units()
 {
+    if (!m_debug_info_data.has_value())
+        return;
     // We have to const_cast here because there isn't a version of
     // BufferStream that accepts a const ByteStream
     // We take care not to use BufferStream operations that modify the underlying buffer
     // TOOD: Add a variant of BufferStream that operates on a const ByteBuffer to AK
-    BufferStream stream(const_cast<ByteBuffer&>(m_debug_info_data));
+    BufferStream stream(const_cast<ByteBuffer&>(m_debug_info_data.value()));
     while (!stream.at_end()) {
         auto unit_offset = stream.offset();
         CompilationUnitHeader compilation_unit_header {};
