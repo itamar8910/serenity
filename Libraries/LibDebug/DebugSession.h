@@ -180,6 +180,7 @@ void DebugSession::run(Callback callback)
         }
 
         DebugBreakReason reason = (state == State::Syscall && !current_breakpoint.has_value()) ? DebugBreakReason::Syscall : DebugBreakReason::Breakpoint;
+
         DebugDecision decision = callback(reason, regs);
 
         if (reason == DebugBreakReason::Syscall) {
@@ -194,10 +195,13 @@ void DebugSession::run(Callback callback)
             state = State::Syscall;
         }
 
+        bool did_single_step = false;
+
         // Re-enable the breakpoint if it wasn't removed by the user
         if (current_breakpoint.has_value() && m_breakpoints.contains(current_breakpoint.value().address)) {
             auto stopped_address = single_step();
             enable_breakpoint(current_breakpoint.value().address);
+            did_single_step = true;
             // If there is another breakpoint after the current one,
             // Then we are already on it (because of single_step)
             auto breakpoint_at_next_instruction = m_breakpoints.get(stopped_address);
@@ -215,7 +219,7 @@ void DebugSession::run(Callback callback)
             ASSERT_NOT_REACHED(); // TODO: implement
         }
 
-        if (state == State::SingleStep) {
+        if (state == State::SingleStep && !did_single_step) {
             single_step();
         }
     }
