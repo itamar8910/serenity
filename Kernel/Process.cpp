@@ -865,14 +865,18 @@ int Process::do_exec(NonnullRefPtr<FileDescription> main_program_description, Ve
     //      It also happens to be the static Virtual Addresss offset every static exectuable gets :)
     //      Without this, some assumptions by the ELF loading hooks below are severely broken.
     //      0x08000000 is a verified random number chosen by random dice roll https://xkcd.com/221/
-    u32 totally_random_offset = interpreter_description ? 0x08000000 : 0;
+
+    // u32 totally_random_offset = interpreter_description ? 0x08000000 : 0;
+    u32 totally_random_offset = 0;
 
     // FIXME: We should be able to load both the PT_INTERP interpreter and the main program... once the RTLD is smart enough
     if (interpreter_description) {
+        dbg() << "loading interpreter";
         loader_metadata = interpreter_description->metadata();
         // we don't need the interpreter file desciption after we've loaded (or not) it into memory
         interpreter_description = nullptr;
     } else {
+        dbg() << "loading main program";
         loader_metadata = main_program_description->metadata();
     }
 
@@ -959,6 +963,8 @@ int Process::do_exec(NonnullRefPtr<FileDescription> main_program_description, Ve
 
         // NOTE: At this point, we've committed to the new executable.
         entry_eip = loader->entry().offset(totally_random_offset).get();
+        dbg() << "entry eip before offset: " << (void*)loader->entry().as_ptr();
+        dbg() << "entry_eip after offset: " << (void*)entry_eip;
 
         kill_threads_except_self();
 
