@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2019-2020, Andrew Kaster <andrewdkaster@gmail.com>
+ * Copyright (c) 2019-2020, Andrew Kaster <andrewdkaster@gmail.com>,
+ * Itamar S. <itamar8910@gmail.com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,6 +36,7 @@
 // int libfunc();
 
 #include <AK/LogStream.h>
+#include <unistd.h>
 
 volatile int g_x = 0;
 
@@ -50,6 +52,7 @@ int main(int argc, char** argv)
     //s
     dbg() << "Loader main";
     g_x = 3;
+    sleep(1000);
     return 0;
     // return libfunc() + g_x;
 }
