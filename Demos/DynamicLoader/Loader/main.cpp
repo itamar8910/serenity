@@ -79,15 +79,10 @@ int main(int argc, char** argv, char** envp)
     typedef int (*EntryFunction)(int, char**, char**);
     int retval = ((EntryFunction)(entry_point.get()))(argc, argv, envp);
     dbg() << "main program return value: " << retval;
+
+    sleep(1000); // so we can inspect memory layout etc
+
+    /// TODO: close main_program_fd (preferably with a ScopeGuard)
+
     return retval;
-
-    // FILE* main_program_file = fdopen(main_program_fd, )
-    // fseek(main_program_fd, SEEK_SET, 0);
-    // open("/bin/DynExec", 0);
-
-    // g_x
-    //     = 3;
-    // sleep(1000);
-    // return 0;
-    // return libfunc() + g_x;
 }
