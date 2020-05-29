@@ -966,9 +966,18 @@ int Process::do_exec(NonnullRefPtr<FileDescription> main_program_description, Ve
             daf = {};
         }
     }
-    auto main_program_fd = alloc_fd();
 
-    m_fds[main_program_fd].set(move(main_program_description), 0); // flags=0
+    if (interpreter_description) {
+        main_program_description->set_readable(true); // So that the dynamic loader can mmap the main program
+        auto main_program_fd = alloc_fd();
+        // FIXME: The proper way to do this is to pass a special auxilary vector to
+        // the dynamic loader. However, since the dynamic loader currently uses
+        // the normal libc _start, we can just pass data via the environ for now.
+        environment.append(String::format("%s=%s", "_MAIN_PROGRAM_PATH", main_program_description->absolute_path().characters()));
+        environment.append(String::format("%s=%d", "_MAIN_PROGRAM_FD", main_program_fd));
+
+        m_fds[main_program_fd].set(move(main_program_description), 0); // flags=0
+    }
 
     Thread* new_main_thread = nullptr;
     if (Process::current == this) {

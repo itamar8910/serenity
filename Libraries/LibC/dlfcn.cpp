@@ -85,31 +85,7 @@ void* dlopen(const char* filename, int flags)
 
     ScopeGuard close_fd_guard([fd]() { close(fd); });
 
-    struct stat file_stats{};
-
-    int ret = fstat(fd, &file_stats);
-    if (ret < 0) {
-        g_dlerror_msg = String::format("Unable to stat file %s", filename);
-        return nullptr;
-    }
-
-    auto loader = ELF::DynamicLoader::construct(filename, fd, file_stats.st_size);
-
-    if (!loader->is_valid()) {
-        g_dlerror_msg = String::format("%s is not a valid ELF dynamic shared object!", filename);
-        return nullptr;
-    }
-
-    if (!loader->load_from_image(flags)) {
-        g_dlerror_msg = String::format("Failed to load ELF object %s", filename);
-        return nullptr;
-    }
-
-    g_elf_objects.set(file_path.basename(), move(loader));
-    g_dlerror_msg = "Successfully loaded ELF object.";
-
-    // we have one refcount already
-    return const_cast<ELF::DynamicLoader*>(g_elf_objects.get(file_path.basename()).value());
+    return serenity_dlopen(fd, filename, flags);
 }
 
 void* dlsym(void* handle, const char* symbol_name)
@@ -126,3 +102,45 @@ void* dlsym(void* handle, const char* symbol_name)
 }
 
 } // extern "C"
+
+void* serenity_dlopen(int fd, const char* filename, int flags)
+{
+    if (!filename) {
+        ASSERT_NOT_REACHED();
+    }
+
+    FileSystemPath file_path(filename);
+
+    auto existing_elf_object = g_elf_objects.get(file_path.basename());
+    if (existing_elf_object.has_value()) {
+        return const_cast<ELF::DynamicLoader*>(existing_elf_object.value());
+    }
+
+    struct stat file_stats {
+    };
+
+    int ret = fstat(fd, &file_stats);
+    if (ret < 0) {
+        g_dlerror_msg = String::format("Unable to stat file %s", filename);
+        return nullptr;
+    }
+
+    auto loader = ELF::DynamicLoader::construct(filename, fd, file_stats.st_size);
+
+    if (!loader->is_valid()) {
+
+        g_dlerror_msg = String::format("%s is not a valid ELF dynamic shared object!", filename);
+        return nullptr;
+    }
+
+    if (!loader->load_from_image(flags)) {
+        g_dlerror_msg = String::format("Failed to load ELF object %s", filename);
+        return nullptr;
+    }
+
+    g_elf_objects.set(file_path.basename(), move(loader));
+    g_dlerror_msg = "Successfully loaded ELF object.";
+
+    // we have one refcount already
+    return const_cast<ELF::DynamicLoader*>(g_elf_objects.get(file_path.basename()).value());
+}

@@ -35,8 +35,16 @@
 
 // int libfunc();
 
-#include <AK/LogStream.h>
+#include <dlfcn.h>
+#include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
+
+#include <AK/LogStream.h>
+#include <AK/String.h>
 
 volatile int g_x = 0;
 
@@ -51,7 +59,25 @@ int main(int argc, char** argv)
     //
     //s
     dbg() << "Loader main";
-    g_x = 3;
+    char* main_program_path_ptr = getenv("_MAIN_PROGRAM_PATH");
+    ASSERT(main_program_path_ptr);
+    String main_program_path(main_program_path_ptr);
+    char* main_program_fd_str = getenv("_MAIN_PROGRAM_FD");
+    ASSERT(main_program_fd_str);
+    int main_program_fd = atoi(main_program_fd_str);
+    lseek(main_program_fd, 0, SEEK_SET);
+    dbg() << "main_program: " << main_program_path << ", fd: " << main_program_fd;
+
+    void* res = serenity_dlopen(main_program_fd, main_program_path.characters(), RTLD_LAZY | RTLD_GLOBAL);
+    dbg() << "dlopen res: " << res;
+    dbg() << dlerror();
+
+    // FILE* main_program_file = fdopen(main_program_fd, )
+    // fseek(main_program_fd, SEEK_SET, 0);
+    // open("/bin/DynExec", 0);
+
+    g_x
+        = 3;
     sleep(1000);
     return 0;
     // return libfunc() + g_x;

@@ -13,7 +13,7 @@ set(SOURCES
 add_executable(libc.so.1 ${SOURCES})
 install(TARGETS libc.so.1 RUNTIME DESTINATION usr/lib/)
 set_property(TARGET libc.so.1 PROPERTY POSITION_INDEPENDENT_CODE ON)
-target_link_libraries(libc.so.1)
+target_link_libraries(libc.so.1 LibC)
 
 #serenity_bin(Loader)
 

@@ -42,3 +42,5 @@ void* dlopen(const char*, int);
 void* dlsym(void*, const char*);
 
 __END_DECLS
+
+void* serenity_dlopen(int fd, const char* filename, int flags);
