@@ -78,8 +78,9 @@ void* dlopen(const char* filename, int flags)
     }
 
     int fd = open(filename, O_RDONLY);
-    if (!fd) {
+    if (fd < 0) {
         g_dlerror_msg = String::format("Unable to open file %s", filename);
+        ASSERT_NOT_REACHED();
         return nullptr;
     }
 
@@ -88,10 +89,23 @@ void* dlopen(const char* filename, int flags)
     return serenity_dlopen(fd, filename, flags);
 }
 
+static void* search_symbol_in_all_objects(const char* symbol_name)
+{
+    for (const auto& entry : g_elf_objects) {
+        const auto& dso = entry.value;
+        void* symbol = dso->symbol_for_name(symbol_name);
+        if (symbol)
+            return symbol;
+    }
+    return nullptr;
+}
+
 void* dlsym(void* handle, const char* symbol_name)
 {
-    // FIXME: When called with a NULL handle we're supposed to search every dso in the process... that'll get expensive
-    ASSERT(handle);
+    // When called with a NULL handle, we search every loaded dso in the process
+    if (!handle) {
+        return search_symbol_in_all_objects(symbol_name);
+    }
     auto* dso = reinterpret_cast<ELF::DynamicLoader*>(handle);
     void* symbol = dso->symbol_for_name(symbol_name);
     if (!symbol) {

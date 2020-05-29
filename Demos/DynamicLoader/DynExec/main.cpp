@@ -32,8 +32,11 @@
 //     return 1;
 // }a
 
-const char my_interp[] __attribute__((section(".interp")))
-= "/bin/Loader";
+// const char my_interp[] __attribute__((section(".interp")))
+// = "/bin/Loader";
+// const char my_interp[] __attribute__((section(".interp")))
+// = "/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2";
+const char interp_section[] __attribute__((section(".interp"))) = "/path/to/dynamic/linker";
 
 int libfunc();
 
@@ -42,6 +45,5 @@ int main(int argc, char** argv)
     (void)argc;
     (void)argv;
 
-    return 2;
-    // return libfunc();
+    return libfunc();
 }

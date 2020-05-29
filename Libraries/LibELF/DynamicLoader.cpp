@@ -24,6 +24,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <AK/String.h>
 #include <AK/StringBuilder.h>
 #include <LibELF/DynamicLoader.h>
 #include <LibELF/Validation.h>
@@ -36,7 +37,7 @@
 #include <string.h>
 
 #define DYNAMIC_LOAD_DEBUG
-// #define DYNAMIC_LOAD_VERBOSE
+#define DYNAMIC_LOAD_VERBOSE
 
 #ifdef DYNAMIC_LOAD_VERBOSE
 #    define VERBOSE(fmt, ...) dbgprintf(fmt, ##__VA_ARGS__)
@@ -86,7 +87,7 @@ DynamicLoader::~DynamicLoader()
         munmap(m_file_mapping, m_file_size);
 }
 
-void* DynamicLoader::symbol_for_name(const char* name)
+void* DynamicLoader::symbol_for_name(const char* name) const
 {
     auto symbol = m_dynamic_object->hash_section().lookup_symbol(name);
 
@@ -121,7 +122,14 @@ bool DynamicLoader::load_from_image(unsigned flags)
     m_dynamic_object = AK::make<DynamicObject>(m_text_segment_load_address, m_dynamic_section_address);
 
     m_dynamic_object->for_each_needed_library([](const char* lib_name) {
-        dbg() << "needed library: " << lib_name;
+        dbg() << "Loading dependency: " << lib_name;
+        printf("Loading dependency: %s\n", lib_name);
+        // FIXME: We shouldn't have /usr/lib hardcoded, and we should iterate over some pre-defined list of directories
+        auto res = dlopen(String::format("/usr/lib/%s", lib_name).characters(), RTLD_LAZY | RTLD_GLOBAL);
+        if (!res) {
+            perror(String::format("Failed to load required library: %s", lib_name).characters()); // FIXME: dlerror?
+            ASSERT_NOT_REACHED();
+        }
         return IterationDecision::Continue;
     });
 
@@ -148,6 +156,7 @@ bool DynamicLoader::load_stage_2(unsigned flags)
 
     do_relocations();
     setup_plt_trampoline();
+    relocate_got_plt();
 
     // Clean up our setting of .text to PROT_READ | PROT_WRITE
     if (m_dynamic_object->has_text_relocations()) {
@@ -333,6 +342,31 @@ void DynamicLoader::setup_plt_trampoline()
 #endif
 }
 
+void DynamicLoader::relocate_got_plt()
+{
+    //
+    // At this stage, the .got.plt contains addresses that point back to
+    // the plt. This is a part of the lazy linking mechanism.
+    // The plt was probably loaded somewhere else than the compiler expected,
+    // so we need to relocate the addresses in .got.plt to point at the actual
+    // indtended parts in the plt.
+
+    // TODO: is this actually the way it's supposed to be done?
+    // why doesn't the compiler explicitly generate relocations for this?
+
+    auto got_address = m_dynamic_object->plt_got_base_address();
+    if (!got_address.has_value()) {
+        dbg() << "no plt, exiting relocate_got_plt";
+        return;
+    }
+    u32* got_u32_ptr = (u32*)got_address.value().as_ptr();
+    u32 num_plt_entries = m_dynamic_object->number_of_plt_relocation_entries();
+    const size_t OFFSET_IN_GOT_PLT = 3; // The first three entries in .got.plt are artificial
+    for (size_t i = 0; i < num_plt_entries; ++i) {
+        got_u32_ptr[i + OFFSET_IN_GOT_PLT] += m_dynamic_object->base_address().get();
+    }
+}
+
 // Called from our ASM routine _plt_trampoline
 extern "C" Elf32_Addr _fixup_plt_entry(DynamicLoader* object, u32 relocation_offset)
 {
@@ -342,6 +376,7 @@ extern "C" Elf32_Addr _fixup_plt_entry(DynamicLoader* object, u32 relocation_off
 // offset is in PLT relocation table
 Elf32_Addr DynamicLoader::patch_plt_entry(u32 relocation_offset)
 {
+    dbg() << "patch_plt_entry called with: " << relocation_offset;
     auto relocation = m_dynamic_object->plt_relocation_section().relocation_at_offset(relocation_offset);
 
     ASSERT(relocation.type() == R_386_JMP_SLOT);
@@ -350,6 +385,15 @@ Elf32_Addr DynamicLoader::patch_plt_entry(u32 relocation_offset)
 
     u8* relocation_address = relocation.address().as_ptr();
     u32 symbol_location = sym.address().get();
+
+    // TODO: Does a symbol with a null value always mean it is defined externally?
+    if (!sym.value()) {
+        dbg() << "Looking up symbol: " << sym.name();
+        printf("Lazy lookup for function: %s\n", sym.name());
+        auto res = dlsym(nullptr, sym.name());
+        ASSERT(res);
+        symbol_location = (u32)res;
+    }
 
     VERBOSE("DynamicLoader: Jump slot relocation: putting %s (%p) into PLT at %p\n", sym.name(), symbol_location, relocation_address);
 

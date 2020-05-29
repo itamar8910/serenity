@@ -218,6 +218,12 @@ public:
             return {};
         return m_base_address.offset(m_procedure_linkage_table_offset);
     }
+
+    u32 number_of_plt_relocation_entries() const
+    {
+        return m_size_of_plt_relocation_entry_list;
+    }
+
     VirtualAddress base_address() const { return m_base_address; }
 
     const char* soname() const { return m_has_soname ? symbol_string_table_string(m_soname_index) : nullptr; }

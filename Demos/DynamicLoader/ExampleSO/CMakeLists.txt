@@ -3,6 +3,7 @@ set(SOURCES
     example.cpp
 )
 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -nostdlib")
 function(serenity_shared_lib target_name fs_name)
     add_library(${target_name} SHARED ${SOURCES})
     install(TARGETS ${target_name} LIBRARY DESTINATION usr/lib)

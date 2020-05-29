@@ -57,7 +57,7 @@ public:
     bool load_stage_2(unsigned flags);
 
     // Intended for use by dlsym or other internal methods
-    void* symbol_for_name(const char*);
+    void* symbol_for_name(const char*) const;
 
     void dump();
 
@@ -105,6 +105,7 @@ private:
     // Stage 2
     void do_relocations();
     void setup_plt_trampoline();
+    void relocate_got_plt();
     void call_object_init_functions();
 
     String m_filename;

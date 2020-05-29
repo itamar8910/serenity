@@ -60,6 +60,7 @@ int main(int argc, char** argv, char** envp)
     //
     //s
     dbg() << "Loader main";
+    printf("Dynamic loader started\n");
     char* main_program_path_ptr = getenv("_MAIN_PROGRAM_PATH");
     ASSERT(main_program_path_ptr);
     String main_program_path(main_program_path_ptr);
@@ -69,6 +70,7 @@ int main(int argc, char** argv, char** envp)
     lseek(main_program_fd, 0, SEEK_SET);
     dbg() << "main_program: " << main_program_path << ", fd: " << main_program_fd;
 
+    printf("Loading main program\n");
     void* res = serenity_dlopen(main_program_fd, main_program_path.characters(), RTLD_LAZY | RTLD_GLOBAL);
     dbg() << "dlopen res: " << res;
     dbg() << dlerror();
@@ -78,9 +80,9 @@ int main(int argc, char** argv, char** envp)
     dbg() << "entry point: " << entry_point;
     typedef int (*EntryFunction)(int, char**, char**);
     int retval = ((EntryFunction)(entry_point.get()))(argc, argv, envp);
-    dbg() << "main program return value: " << retval;
+    printf("Main program return value: %d\n", retval);
 
-    sleep(1000); // so we can inspect memory layout etc
+    // sleep(1000); // so we can inspect memory layout etc
 
     /// TODO: close main_program_fd (preferably with a ScopeGuard)
 
