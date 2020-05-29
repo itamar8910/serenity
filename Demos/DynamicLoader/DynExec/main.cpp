@@ -33,11 +33,15 @@
 // }a
 
 const char my_interp[] __attribute__((section(".interp")))
-    = "/bin/Loader";
+= "/bin/Loader";
+
+int libfunc();
 
 int main(int argc, char** argv)
 {
     (void)argc;
     (void)argv;
-    return 1;
+
+    return 2;
+    // return libfunc();
 }

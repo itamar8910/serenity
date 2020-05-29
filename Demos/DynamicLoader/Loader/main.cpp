@@ -45,10 +45,11 @@
 
 #include <AK/LogStream.h>
 #include <AK/String.h>
+#include <LibELF/DynamicLoader.h>
 
 volatile int g_x = 0;
 
-int main(int argc, char** argv)
+int main(int argc, char** argv, char** envp)
 {
     (void)argc;
     (void)argv;
@@ -72,13 +73,21 @@ int main(int argc, char** argv)
     dbg() << "dlopen res: " << res;
     dbg() << dlerror();
 
+    const ELF::DynamicLoader& main_program = *reinterpret_cast<ELF::DynamicLoader*>(res);
+    auto entry_point = main_program.entry_point();
+    dbg() << "entry point: " << entry_point;
+    typedef int (*EntryFunction)(int, char**, char**);
+    int retval = ((EntryFunction)(entry_point.get()))(argc, argv, envp);
+    dbg() << "main program return value: " << retval;
+    return retval;
+
     // FILE* main_program_file = fdopen(main_program_fd, )
     // fseek(main_program_fd, SEEK_SET, 0);
     // open("/bin/DynExec", 0);
 
-    g_x
-        = 3;
-    sleep(1000);
-    return 0;
+    // g_x
+    //     = 3;
+    // sleep(1000);
+    // return 0;
     // return libfunc() + g_x;
 }

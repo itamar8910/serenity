@@ -67,6 +67,8 @@ public:
     // Requested program interpreter from program headers. May be empty string
     StringView program_interpreter() const { return m_program_interpreter; }
 
+    VirtualAddress entry_point() const { return m_entry_point; }
+
 private:
     class ProgramHeaderRegion {
     public:
@@ -119,6 +121,7 @@ private:
 
     VirtualAddress m_tls_segment_address;
     VirtualAddress m_dynamic_section_address;
+    VirtualAddress m_entry_point;
 };
 
 } // end namespace ELF

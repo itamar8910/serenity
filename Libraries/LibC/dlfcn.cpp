@@ -141,6 +141,6 @@ void* serenity_dlopen(int fd, const char* filename, int flags)
     g_elf_objects.set(file_path.basename(), move(loader));
     g_dlerror_msg = "Successfully loaded ELF object.";
 
-    // we have one refcount already
+    // we have one refcount already in g_elf_objects
     return const_cast<ELF::DynamicLoader*>(g_elf_objects.get(file_path.basename()).value());
 }

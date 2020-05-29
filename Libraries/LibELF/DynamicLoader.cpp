@@ -36,7 +36,7 @@
 #include <string.h>
 
 #define DYNAMIC_LOAD_DEBUG
-//#define DYNAMIC_LOAD_VERBOSE
+// #define DYNAMIC_LOAD_VERBOSE
 
 #ifdef DYNAMIC_LOAD_VERBOSE
 #    define VERBOSE(fmt, ...) dbgprintf(fmt, ##__VA_ARGS__)
@@ -75,8 +75,7 @@ DynamicLoader::DynamicLoader(const char* filename, int fd, size_t size)
 
     auto* elf_header = (Elf32_Ehdr*)m_file_mapping;
 
-    if (!validate_elf_header(*elf_header, m_file_size) ||
-        !validate_program_headers(*elf_header, m_file_size, (u8*)m_file_mapping, m_file_size, m_program_interpreter)) {
+    if (!validate_elf_header(*elf_header, m_file_size) || !validate_program_headers(*elf_header, m_file_size, (u8*)m_file_mapping, m_file_size, m_program_interpreter)) {
         m_valid = false;
     }
 }
@@ -107,17 +106,24 @@ bool DynamicLoader::load_from_image(unsigned flags)
         return false;
     }
 
-#ifdef DYNAMIC_LOAD_VERBOSE
-    m_image->dump();
-#endif
+    // #ifdef DYNAMIC_LOAD_VERBOSE
+    //     m_image->dump();
+    // #endif
 
     load_program_headers(elf_image);
+
+    m_entry_point.set(elf_image.entry().get() + m_text_segment_load_address.get());
 
     // Don't need this private mapping anymore
     munmap(m_file_mapping, m_file_size);
     m_file_mapping = MAP_FAILED;
 
     m_dynamic_object = AK::make<DynamicObject>(m_text_segment_load_address, m_dynamic_section_address);
+
+    m_dynamic_object->for_each_needed_library([](const char* lib_name) {
+        dbg() << "needed library: " << lib_name;
+        return IterationDecision::Continue;
+    });
 
     return load_stage_2(flags);
 }
@@ -127,9 +133,9 @@ bool DynamicLoader::load_stage_2(unsigned flags)
     ASSERT(flags & RTLD_GLOBAL);
     ASSERT(flags & RTLD_LAZY);
 
-#ifdef DYNAMIC_LOAD_DEBUG
+    // #ifdef DYNAMIC_LOAD_DEBUG
     m_dynamic_object->dump();
-#endif
+    // #endif
 
     if (m_dynamic_object->has_text_relocations()) {
         dbg() << "Someone linked non -fPIC code into " << m_filename << " :(";
@@ -312,9 +318,13 @@ extern "C" void _plt_trampoline(void) __attribute__((visibility("hidden")));
 
 void DynamicLoader::setup_plt_trampoline()
 {
-    VirtualAddress got_address = m_dynamic_object->plt_got_base_address();
+    auto got_address = m_dynamic_object->plt_got_base_address();
+    if (!got_address.has_value()) {
+        dbg() << "no plt, exiting setup_plt_trampoline";
+        return;
+    }
 
-    u32* got_u32_ptr = (u32*)got_address.as_ptr();
+    u32* got_u32_ptr = (u32*)got_address.value().as_ptr();
     got_u32_ptr[1] = (u32)this;
     got_u32_ptr[2] = (u32)&_plt_trampoline;
 
@@ -350,15 +360,19 @@ Elf32_Addr DynamicLoader::patch_plt_entry(u32 relocation_offset)
 
 void DynamicLoader::call_object_init_functions()
 {
+    if (!m_dynamic_object->init_section().has_value()) {
+        dbg() << "not init_section, exiting call_object_init_fuunctions";
+        return;
+    }
     typedef void (*InitFunc)();
-    auto init_function = (InitFunc)(m_dynamic_object->init_section().address().as_ptr());
+    auto init_function = (InitFunc)(m_dynamic_object->init_section().value().address().as_ptr());
 
 #ifdef DYNAMIC_LOAD_DEBUG
     dbgprintf("Calling DT_INIT at %p\n", init_function);
 #endif
     (init_function)();
 
-    auto init_array_section = m_dynamic_object->init_array_section();
+    auto init_array_section = m_dynamic_object->init_array_section().value();
 
     InitFunc* init_begin = (InitFunc*)(init_array_section.address().as_ptr());
     InitFunc* init_end = init_begin + init_array_section.entry_count();
@@ -383,5 +397,4 @@ u32 DynamicLoader::ProgramHeaderRegion::mmap_prot() const
     prot |= is_writable() ? PROT_WRITE : 0;
     return prot;
 }
-
 } // end namespace ELF
