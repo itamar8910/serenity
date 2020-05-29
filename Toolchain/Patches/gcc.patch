@@ -108,10 +108,12 @@ new file mode 100644
 index 000000000..2692b8e57
 --- /dev/null
 +++ b/gcc/config/serenity.h
-@@ -0,0 +1,31 @@
+@@ -0,0 +1,33 @@
 +/* Useful if you wish to make target-specific GCC changes. */
 +#undef TARGET_SERENITY
 +#define TARGET_SERENITY 1
++
++#define GLIBC_DYNAMIC_LINKER "/usr/lib/Loader.so"
 +
 +/* Default arguments you want when running your
 +   i686-serenity-gcc/x86_64-serenity-gcc toolchain */
