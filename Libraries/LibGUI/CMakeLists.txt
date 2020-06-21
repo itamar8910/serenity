@@ -88,3 +88,6 @@ set(GENERATED_SOURCES
 
 serenity_lib(LibGUI gui)
 target_link_libraries(LibGUI LibCore LibGfx LibIPC LibThread LibJS)
+
+serenity_shared_lib(LibGUIShared gui)
+target_link_libraries(LibGUIShared LibCoreShared LibGfxShared LibIPCShared LibThreadShared LibJSShared)

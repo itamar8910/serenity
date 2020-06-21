@@ -59,3 +59,6 @@ set(SOURCES
 
 serenity_lib(LibJS js)
 target_link_libraries(LibJS LibM LibCore)
+
+serenity_shared_lib(LibJSShared js)
+target_link_libraries(LibJSShared LibM LibCoreShared)

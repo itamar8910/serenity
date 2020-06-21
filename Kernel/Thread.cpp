@@ -867,15 +867,17 @@ void Thread::make_thread_specific_region(Badge<Process>, Region* allocated_regio
     size_t thread_specific_region_size = align_up_to(process().m_master_tls_size, thread_specific_region_alignment) + sizeof(ThreadSpecificData);
     Region* region = allocated_region;
     if (!region) {
-        region = process().allocate_region({}, thread_specific_region_size, "Thread-specific", PROT_READ | PROT_WRITE, true);
+        region = process().allocate_region({}, thread_specific_region_size + 0x1000, "Thread-specific", PROT_READ | PROT_WRITE, true);
     }
     SmapDisabler disabler;
     auto* thread_specific_data = (ThreadSpecificData*)region->vaddr().offset(align_up_to(process().m_master_tls_size, thread_specific_region_alignment)).as_ptr();
     auto* thread_local_storage = (u8*)((u8*)thread_specific_data) - align_up_to(process().m_master_tls_size, process().m_master_tls_alignment);
     m_thread_specific_data = VirtualAddress(thread_specific_data);
     thread_specific_data->self = thread_specific_data;
-    if (process().m_master_tls_size)
-        memcpy(thread_local_storage, process().m_master_tls_region->vaddr().as_ptr(), process().m_master_tls_size);
+    if (process().m_master_tls_size) {
+        dbg() << "m_master_tls_size: " << (void*)process().m_master_tls_size;
+        memcpy(thread_local_storage, process().m_master_tls_region->vaddr().as_ptr(), process().m_master_tls_size + 0x200);
+    }
 }
 
 const LogStream& operator<<(const LogStream& stream, const Thread& value)

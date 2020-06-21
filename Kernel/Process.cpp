@@ -927,7 +927,7 @@ int Process::do_exec(NonnullRefPtr<FileDescription> main_program_description, Ve
 
     size_t thread_specific_region_alignment = max(m_master_tls_alignment, alignof(ThreadSpecificData));
     size_t thread_specific_region_size = align_up_to(m_master_tls_size, thread_specific_region_alignment) + sizeof(ThreadSpecificData);
-    auto* tls_region = allocate_region({}, thread_specific_region_size, "Thread-specific", PROT_READ | PROT_WRITE, true);
+    auto* tls_region = allocate_region({}, thread_specific_region_size + 0x1000, "Thread-specific", PROT_READ | PROT_WRITE, true);
     dbg() << "kernel: tls_region: " << (void*)tls_region->vaddr().as_ptr();
     // This is a total hack to prevent from colliding with Loader.so's TLS
     constexpr size_t TLS_POOL_OFFSET = 0;

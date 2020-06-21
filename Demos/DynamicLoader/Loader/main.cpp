@@ -76,19 +76,24 @@ int main(int argc, char** argv, char** envp)
     initialize_tls(tls_region_addr, tls_region_size);
 
     printf("Loading main program\n");
+
+    const uint32_t required_tls_size = 0x100; // TODO: calculate this
+    volatile uint32_t proram_tls_base = (u32)tls_region_addr + required_tls_size;
+    asm("movl %0,%%gs:0x0"
+        :
+        : "rm"(proram_tls_base));
+
+    // main_program.loader_tls_base = (u32)tls_region_addr;
+    // main_program.program_tls_base = proram_tls_base;
+
     void* res = serenity_dlopen(main_program_fd, main_program_path.characters(), RTLD_LAZY | RTLD_GLOBAL);
     dbg() << "dlopen res: " << res;
     dbg() << dlerror();
 
-    const ELF::DynamicLoader& main_program = *reinterpret_cast<ELF::DynamicLoader*>(res);
+    ELF::DynamicLoader& main_program = *reinterpret_cast<ELF::DynamicLoader*>(res);
     auto entry_point = main_program.entry_point();
     dbg() << "entry point: " << entry_point;
-    // A hack to make enough space for TLS
-    const uint32_t required_tls_size = 0x100; // TODO: calculate this
-    volatile uint32_t tls_end = (u32)tls_region_addr + required_tls_size;
-    asm("movl %0,%%gs:0x0"
-        :
-        : "rm"(tls_end));
+    // A hack to make enough space for loader's TLS
     typedef int (*EntryFunction)(int, char**, char**);
     // asm("int3");
     int retval = ((EntryFunction)(entry_point.get()))(argc, argv, envp);

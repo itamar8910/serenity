@@ -255,6 +255,8 @@ bool EventLoop::start_rpc_server()
 {
     // Create /tmp/rpc if it doesn't exist.
     int rc = mkdir("/tmp/rpc", 0777);
+    printf("after mkdir, errno=%d\n", errno);
+    printf("start_rpc_server: &errno=%p\n", &errno);
     if (rc == 0) {
         // Ensure it gets created as 0777 despite our umask.
         rc = chmod("/tmp/rpc", 0777);
@@ -264,6 +266,9 @@ bool EventLoop::start_rpc_server()
         }
     } else if (errno != EEXIST) {
         perror("mkdir /tmp/rpc");
+        if (getpid() == 24) {
+            asm("int3");
+        }
         return false;
     }
 

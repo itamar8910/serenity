@@ -46,7 +46,9 @@
 
 extern "C" {
 
-static __thread int s_cached_tid = 0;
+// FIXME: For some reason we have problems with "static _thread" vars
+// static __thread int s_cached_tid = 0;
+__thread int s_cached_tid = 1;
 
 int chown(const char* pathname, uid_t uid, gid_t gid)
 {

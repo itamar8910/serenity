@@ -428,7 +428,30 @@ Optional<u32> DynamicLoader::lookup_symbol(const ELF::DynamicObject::Symbol& sym
 // Called from our ASM routine _plt_trampoline
 extern "C" Elf32_Addr _fixup_plt_entry(DynamicLoader* object, u32 relocation_offset)
 {
-    return object->patch_plt_entry(relocation_offset);
+    // volatile u32 loader_tls_base = object->loader_tls_base;
+    // volatile u32 program_tls_base = object->program_tls_base;
+    // dbg() << "a1";
+    // asm("movl %0,%%gs:0x0"
+    //     :
+    //     : "rm"(loader_tls_base));
+    u32 orig_tls_end = 0;
+    asm("movl %%gs:0x0, %0"
+        : "=r"(orig_tls_end)
+        :);
+
+    volatile u32 loader_tls_base = orig_tls_end - 0x50;
+    asm("movl %0,%%gs:0x0"
+        :
+        : "rm"(loader_tls_base));
+
+    auto addr = object->patch_plt_entry(relocation_offset);
+
+    volatile u32 program_tls_base = orig_tls_end;
+    asm("movl %0,%%gs:0x0"
+        :
+        : "rm"(program_tls_base));
+
+    return addr;
 }
 
 // offset is in PLT relocation table
@@ -446,6 +469,7 @@ Elf32_Addr DynamicLoader::patch_plt_entry(u32 relocation_offset)
     ASSERT(res.has_value());
     u32 symbol_location = res.value();
 
+    // dbgprintf("DynamicLoader: Jump slot relocation: putting %s (%p) into PLT at %p\n", sym.name(), symbol_location, relocation_address);
     VERBOSE("DynamicLoader: Jump slot relocation: putting %s (%p) into PLT at %p\n", sym.name(), symbol_location, relocation_address);
 
     *(u32*)relocation_address = symbol_location;

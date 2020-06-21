@@ -45,6 +45,8 @@ int mkdir(const char* pathname, mode_t mode)
         return -1;
     }
     int rc = syscall(SC_mkdir, pathname, strlen(pathname), mode);
+    printf("mkdir rc: %d\n", rc);
+    printf("mkdir: &errno=%p\n", &errno);
     __RETURN_WITH_ERRNO(rc, rc, -1);
 }
 

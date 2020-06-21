@@ -24,3 +24,6 @@ set(SOURCES
 
 serenity_lib(LibGfx gfx)
 target_link_libraries(LibGfx LibM LibCore)
+
+serenity_shared_lib(LibGfxShared gfx)
+target_link_libraries(LibGfxShared LibM LibCoreShared)
