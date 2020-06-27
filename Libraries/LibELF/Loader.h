@@ -56,7 +56,11 @@ public:
 #endif
     VirtualAddress entry() const
     {
-        return m_image.entry();
+        u32 offset = 0;
+        if (m_image.is_dynamic()) {
+            offset = (u32)m_base_address;
+        }
+        return m_image.entry().offset(offset);
     }
     const Image& image() const { return m_image; }
     char* symbol_ptr(const char* name) const;
@@ -70,7 +74,8 @@ public:
 private:
     explicit Loader(const u8*, size_t);
 
-    bool layout();
+    bool layout_dynamic();
+    bool layout_static();
     bool perform_relocations();
     void* lookup(const ELF::Image::Symbol&);
     char* area_for_section(const ELF::Image::Section&);
@@ -87,8 +92,10 @@ private:
         char* ptr { nullptr };
         unsigned size { 0 };
     };
+
     Image m_image;
 
+    void* m_base_address { nullptr };
     size_t m_symbol_count { 0 };
 
     struct SortedSymbol {

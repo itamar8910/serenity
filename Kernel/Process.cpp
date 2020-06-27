@@ -866,14 +866,15 @@ int Process::do_exec(NonnullRefPtr<FileDescription> main_program_description, Ve
         });
 
         if (interpreter_description) {
-            auto res = load_program(*interpreter_description, 0, true);
+            // TODO: Load main program
+            auto res = load_program(*interpreter_description);
             if (res.is_error()) {
                 return res.error().error();
             }
             entry_eip = res.value();
 
         } else { // Statically linked program
-            auto res = load_program(*main_program_description, 0, true);
+            auto res = load_program(*main_program_description);
             if (res.is_error()) {
                 return res.error().error();
             }
@@ -1005,7 +1006,7 @@ int Process::do_exec(NonnullRefPtr<FileDescription> main_program_description, Ve
     return 0;
 }
 
-KResultOr<u32> Process::load_program(FileDescription& program_description, u32 offset, bool update_tls)
+KResultOr<u32> Process::load_program(FileDescription& program_description)
 {
     auto vmobject = SharedInodeVMObject::create_with_inode(*program_description.inode());
     if (static_cast<const SharedInodeVMObject&>(*vmobject).writable_mappings()) {
@@ -1038,7 +1039,7 @@ KResultOr<u32> Process::load_program(FileDescription& program_description, u32 o
             prot |= PROT_EXEC;
 
         auto* region = allocate_region_with_vmobject(
-            vaddr.offset(offset), size, *vmobject, offset_in_image,
+            vaddr, size, *vmobject, offset_in_image,
             create_region_name(name),
             prot);
         if (region) {
@@ -1056,7 +1057,7 @@ KResultOr<u32> Process::load_program(FileDescription& program_description, u32 o
         if (is_writable)
             prot |= PROT_WRITE;
 
-        auto* region = allocate_region(vaddr.offset(offset), size,
+        auto* region = allocate_region(vaddr, size,
             create_region_name(name),
             prot);
         if (region)
@@ -1073,11 +1074,9 @@ KResultOr<u32> Process::load_program(FileDescription& program_description, u32 o
     loader->tls_section_hook = [&](size_t size, size_t alignment) {
         ASSERT(size);
         auto* region = allocate_region({}, size, "TLS", PROT_READ | PROT_WRITE);
-        if (update_tls) {
-            m_master_tls_size = size;
-            m_master_tls_alignment = alignment;
-            m_master_tls_region = region->make_weak_ptr();
-        }
+        m_master_tls_size = size;
+        m_master_tls_alignment = alignment;
+        m_master_tls_region = region->make_weak_ptr();
         return region->vaddr().as_ptr();
     };
 
@@ -1090,11 +1089,11 @@ KResultOr<u32> Process::load_program(FileDescription& program_description, u32 o
     // FIXME: Validate that this virtual address is within executable region,
     //     instead of just non-null. You could totally have a DSO with entry point of
     //     the beginning of the text segement.
-    if (!loader->entry().offset(offset).get()) {
-        klog() << "do_exec: Failure loading program, entry pointer is invalid! (" << loader->entry().offset(offset) << ")";
+    if (!loader->entry().get()) {
+        klog() << "do_exec: Failure loading program, entry pointer is invalid! (" << loader->entry() << ")";
         return -ENOEXEC;
     }
-    return loader->entry().offset(offset).get();
+    return loader->entry().get();
 }
 
 static KResultOr<Vector<String>> find_shebang_interpreter_for_executable(const char first_page[], int nread)
@@ -1190,10 +1189,12 @@ KResultOr<NonnullRefPtr<FileDescription>> Process::find_elf_interpreter_for_exec
             return KResult(-ENOEXEC);
         }
 
-        if (!interpreter_interpreter_path.is_empty()) {
-            dbg() << "exec(" << path << "): Interpreter (" << interpreter_description->absolute_path() << ") has its own interpreter (" << interpreter_interpreter_path << ")! No thank you!";
-            return KResult(-ELOOP);
-        }
+        // TODO: Uncomment the following block
+        // It is currently commented because we the loader also gets a .interp section in the build process
+        // if (!interpreter_interpreter_path.is_empty()) {
+        //     dbg() << "exec(" << path << "): Interpreter (" << interpreter_description->absolute_path() << ") has its own interpreter (" << interpreter_interpreter_path << ")! No thank you!";
+        //     return KResult(-ELOOP);
+        // }
 
         return interpreter_description;
     }
