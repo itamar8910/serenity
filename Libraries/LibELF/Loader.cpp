@@ -50,23 +50,28 @@ Loader::~Loader()
 {
 }
 
-bool Loader::load()
+Optional<AuxiliaryData> Loader::load()
 {
 #ifdef Loader_DEBUG
     m_image.dump();
 #endif
     if (!m_image.is_valid())
-        return false;
+        return {};
 
     if (m_image.is_dynamic()) {
-        layout_dynamic();
+        if (!layout_dynamic())
+            return {};
     } else {
         ASSERT(m_image.is_executable());
         if (!layout_static())
-            return false;
+            return {};
     }
 
-    return true;
+    AuxiliaryData aux;
+    aux.program_headers = (u32)m_base_address + m_image.program_headers_offset();
+    aux.num_program_headers = (u32)m_base_address + m_image.program_header_count();
+    aux.entry_point = m_image.entry().offset((u32)m_base_address).get();
+    return aux;
 }
 
 #define ALIGN_ROUND_UP(x, align) ((((size_t)(x)) + align - 1) & (~(align - 1)))
@@ -130,8 +135,6 @@ bool Loader::layout_dynamic()
 
     VirtualAddress data_segment_actual_addr = data_header.value().vaddr().offset((u32)m_base_address);
     copy_to_user(data_segment_actual_addr.as_ptr(), (const u8*)data_header.value().raw_data(), data_header.value().size_in_image());
-
-    // TODO: Report back the address of the entry point & data section
     return true;
 #endif
 }
@@ -205,6 +208,8 @@ bool Loader::layout_static()
         }
 #endif
     });
+    if (failed)
+        return {};
     return !failed;
 }
 

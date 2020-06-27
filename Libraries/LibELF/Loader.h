@@ -32,6 +32,7 @@
 #include <AK/OwnPtr.h>
 #include <AK/StringView.h>
 #include <AK/Vector.h>
+#include <LibELF/AuxiliaryData.h>
 #include <LibELF/Image.h>
 
 #ifdef KERNEL
@@ -48,7 +49,7 @@ public:
     static NonnullRefPtr<Loader> create(const u8* data, size_t size) { return adopt(*new Loader(data, size)); }
     ~Loader();
 
-    bool load();
+    Optional<AuxiliaryData> load();
 #if defined(KERNEL)
     Function<void*(VirtualAddress, size_t, size_t, bool, bool, const String&)> alloc_section_hook;
     Function<void*(size_t, size_t)> tls_section_hook;

@@ -78,6 +78,7 @@
 #include <LibC/errno_numbers.h>
 #include <LibC/limits.h>
 #include <LibC/signal_numbers.h>
+#include <LibELF/AuxiliaryData.h>
 #include <LibELF/Loader.h>
 #include <LibELF/Validation.h>
 
@@ -871,14 +872,14 @@ int Process::do_exec(NonnullRefPtr<FileDescription> main_program_description, Ve
             if (res.is_error()) {
                 return res.error().error();
             }
-            entry_eip = res.value();
+            entry_eip = res.value().entry_point;
 
         } else { // Statically linked program
             auto res = load_program(*main_program_description);
             if (res.is_error()) {
                 return res.error().error();
             }
-            entry_eip = res.value();
+            entry_eip = res.value().entry_point;
         }
         rollback_regions_guard.disarm();
     }
@@ -1006,7 +1007,7 @@ int Process::do_exec(NonnullRefPtr<FileDescription> main_program_description, Ve
     return 0;
 }
 
-KResultOr<u32> Process::load_program(FileDescription& program_description)
+KResultOr<ELF::AuxiliaryData> Process::load_program(FileDescription& program_description)
 {
     auto vmobject = SharedInodeVMObject::create_with_inode(*program_description.inode());
     if (static_cast<const SharedInodeVMObject&>(*vmobject).writable_mappings()) {
@@ -1080,20 +1081,14 @@ KResultOr<u32> Process::load_program(FileDescription& program_description)
         return region->vaddr().as_ptr();
     };
 
-    bool success = loader->load();
+    auto aux = loader->load();
 
-    if (!success) {
+    if (!aux.has_value()) {
         klog() << "do_exec: Failure loading program: ";
         return -ENOEXEC;
     }
-    // FIXME: Validate that this virtual address is within executable region,
-    //     instead of just non-null. You could totally have a DSO with entry point of
-    //     the beginning of the text segement.
-    if (!loader->entry().get()) {
-        klog() << "do_exec: Failure loading program, entry pointer is invalid! (" << loader->entry() << ")";
-        return -ENOEXEC;
-    }
-    return loader->entry().get();
+
+    return aux.value();
 }
 
 static KResultOr<Vector<String>> find_shebang_interpreter_for_executable(const char first_page[], int nread)
