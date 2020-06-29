@@ -855,6 +855,7 @@ int Process::do_exec(NonnullRefPtr<FileDescription> main_program_description, Ve
 #endif
 
     u32 entry_eip = 0;
+    Optional<ELF::AuxiliaryData> main_program_aux_data;
 
     MM.enter_process_paging_scope(*this);
 
@@ -868,7 +869,14 @@ int Process::do_exec(NonnullRefPtr<FileDescription> main_program_description, Ve
 
         if (interpreter_description) {
             // TODO: Load main program
-            auto res = load_program(*interpreter_description);
+            auto res = load_program(*main_program_description);
+            if (res.is_error()) {
+                dbg() << "Failed to load main program";
+                return res.error().error();
+            }
+            main_program_aux_data = res.value();
+
+            res = load_program(*interpreter_description);
             if (res.is_error()) {
                 return res.error().error();
             }
@@ -933,8 +941,8 @@ int Process::do_exec(NonnullRefPtr<FileDescription> main_program_description, Ve
         // FIXME: The proper way to do this is to pass a special auxilary vector to
         // the dynamic loader. However, since the dynamic loader currently uses
         // the normal libc _start, we can just pass data via the environ for now.
-        environment.append(String::format("%s=%s", "_MAIN_PROGRAM_PATH", main_program_description->absolute_path().characters()));
-        environment.append(String::format("%s=%d", "_MAIN_PROGRAM_FD", main_program_fd));
+        // environment.append(String::format("%s=%s", "_MAIN_PROGRAM_PATH", main_program_description->absolute_path().characters()));
+        // environment.append(String::format("%s=%d", "_MAIN_PROGRAM_FD", main_program_fd));
 
         m_fds[main_program_fd].set(move(main_program_description), 0); // flags=0
     }
@@ -952,7 +960,7 @@ int Process::do_exec(NonnullRefPtr<FileDescription> main_program_description, Ve
 
     // NOTE: We create the new stack before disabling interrupts since it will zero-fault
     //       and we don't want to deal with faults after this point.
-    u32 new_userspace_esp = new_main_thread->make_userspace_stack_for_main_thread(move(arguments), move(environment));
+    u32 new_userspace_esp = new_main_thread->make_userspace_stack_for_main_thread(move(arguments), move(environment), main_program_aux_data);
 
     // We cli() manually here because we don't want to get interrupted between do_exec() and Schedule::yield().
     // The reason is that the task redirection we've set up above will be clobbered by the timer IRQ.
