@@ -1,31 +1,18 @@
-#include <Kernel/Syscall.h>
+#include "Utils.h"
+#include <LibELF/AuxiliaryData.h>
 
-void local_dbgputstr(const char* str, int len)
+int main(int x, char**)
 {
-    constexpr unsigned int function = Kernel::SC_dbgputch;
-    for (int i = 0; i < len; ++i) {
-        unsigned int result;
-        asm volatile("int $0x82"
-                     : "=a"(result)
-                     : "a"(function), "d"((u32)str[i])
-                     : "memory");
-    }
-}
-
-void exit(int code)
-{
-    constexpr unsigned int function = Kernel::SC_exit;
-    unsigned int result;
-    asm volatile("int $0x82"
-                 : "=a"(result)
-                 : "a"(function), "d"(code)
-                 : "memory");
-}
-
-int main()
-{
+    ELF::AuxiliaryData* aux_data = (ELF::AuxiliaryData*)x;
     const char str[] = "loader\n";
     local_dbgputstr(str, sizeof(str));
-    exit(0);
+    dbgprintf("hello %p\n", 0xdeadbeef);
+
+    // Elf32_Phdr* phdr = (Elf32_Phdr*)aux_data->program_headers;
+    // (void)ph
+    // phdr->p_type
+    // dbg() << "a";
+
+    exit(aux_data->program_headers);
     return 0;
 }
