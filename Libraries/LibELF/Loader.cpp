@@ -69,8 +69,9 @@ Optional<AuxiliaryData> Loader::load()
 
     AuxiliaryData aux;
     aux.program_headers = (u32)m_base_address + m_image.program_headers_offset();
-    aux.num_program_headers = (u32)m_base_address + m_image.program_header_count();
+    aux.num_program_headers = m_image.program_header_count();
     aux.entry_point = m_image.entry().offset((u32)m_base_address).get();
+    aux.base_address = (u32)m_base_address;
     return aux;
 }
 

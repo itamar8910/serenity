@@ -23,37 +23,17 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <LibELF/AuxiliaryData.h>
+#pragma once
+#include <LibELF/exec_elf.h>
 
-#include "DynamicSection.h"
-#include "Utils.h"
+class DynamicSection {
+public:
+    explicit DynamicSection(Elf32_Addr base_adderss, Elf32_Addr dynamic_section_address);
+    ~DynamicSection() = default;
 
-int main(int x, char**)
-{
-    ELF::AuxiliaryData* aux_data = (ELF::AuxiliaryData*)x;
-    const char str[] = "loader\n";
-    local_dbgputstr(str, sizeof(str));
-    dbgprintf("hello %p\n", 0xdeadbeef);
-    dbgprintf("entry point: %p\n", aux_data->entry_point);
-    dbgprintf("program headers: %p\n", aux_data->program_headers);
-    dbgprintf("num program headers: %p\n", aux_data->num_program_headers);
-    dbgprintf("base address: %p\n", aux_data->base_address);
+private:
+    void iterate_entries();
 
-    Elf32_Addr dynamic_section_addr = 0;
-    for (size_t i = 0; i < aux_data->num_program_headers; ++i) {
-        Elf32_Phdr* phdr = &((Elf32_Phdr*)aux_data->program_headers)[i];
-        dbgprintf("phdr: %p\n", phdr);
-        dbgprintf("phdr type: %d\n", phdr->p_type);
-        if (phdr->p_type == PT_DYNAMIC) {
-            dynamic_section_addr = aux_data->base_address + phdr->p_offset;
-        }
-    }
-
-    if (!dynamic_section_addr)
-        exit(1);
-
-    DynamicSection dynamic_section(aux_data->base_address, dynamic_section_addr);
-
-    exit(0);
-    return 0;
-}
+    Elf32_Addr m_base_adderss;
+    const Elf32_Dyn* m_entries;
+};

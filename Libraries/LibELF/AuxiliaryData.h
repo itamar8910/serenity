@@ -33,6 +33,7 @@ struct AuxiliaryData {
     Elf32_Addr program_headers { 0 };
     size_t num_program_headers { 0 };
     Elf32_Addr entry_point { 0 };
+    Elf32_Addr base_address { 0 };
 };
 
 }

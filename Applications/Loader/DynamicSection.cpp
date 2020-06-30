@@ -1,3 +1,4 @@
+
 /*
  * All rights reserved.
  *
@@ -22,38 +23,19 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
-#include <LibELF/AuxiliaryData.h>
-
 #include "DynamicSection.h"
 #include "Utils.h"
 
-int main(int x, char**)
+DynamicSection::DynamicSection(Elf32_Addr base_adderss, Elf32_Addr dynamic_section_address)
+    : m_base_adderss(base_adderss)
+    , m_entries(reinterpret_cast<const Elf32_Dyn*>(dynamic_section_address))
 {
-    ELF::AuxiliaryData* aux_data = (ELF::AuxiliaryData*)x;
-    const char str[] = "loader\n";
-    local_dbgputstr(str, sizeof(str));
-    dbgprintf("hello %p\n", 0xdeadbeef);
-    dbgprintf("entry point: %p\n", aux_data->entry_point);
-    dbgprintf("program headers: %p\n", aux_data->program_headers);
-    dbgprintf("num program headers: %p\n", aux_data->num_program_headers);
-    dbgprintf("base address: %p\n", aux_data->base_address);
+    iterate_entries();
+}
 
-    Elf32_Addr dynamic_section_addr = 0;
-    for (size_t i = 0; i < aux_data->num_program_headers; ++i) {
-        Elf32_Phdr* phdr = &((Elf32_Phdr*)aux_data->program_headers)[i];
-        dbgprintf("phdr: %p\n", phdr);
-        dbgprintf("phdr type: %d\n", phdr->p_type);
-        if (phdr->p_type == PT_DYNAMIC) {
-            dynamic_section_addr = aux_data->base_address + phdr->p_offset;
-        }
+void DynamicSection::iterate_entries()
+{
+    for (const Elf32_Dyn* current = m_entries; current->d_tag != DT_NULL; ++current) {
+        dbgprintf("DT tag: %x\n", current->d_tag);
     }
-
-    if (!dynamic_section_addr)
-        exit(1);
-
-    DynamicSection dynamic_section(aux_data->base_address, dynamic_section_addr);
-
-    exit(0);
-    return 0;
 }

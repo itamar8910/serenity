@@ -875,6 +875,7 @@ int Process::do_exec(NonnullRefPtr<FileDescription> main_program_description, Ve
                 return res.error().error();
             }
             main_program_aux_data = res.value();
+            dbg() << "main program entry point: " << (void*)main_program_aux_data.value().entry_point;
 
             res = load_program(*interpreter_description);
             if (res.is_error()) {

@@ -1,5 +1,7 @@
 set(SOURCES
     main.cpp
+    Utils.cpp
+    DynamicSection.cpp
 )
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -nostdlib -pie")

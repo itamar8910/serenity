@@ -29,153 +29,26 @@
 #include <Kernel/Syscall.h>
 #include <stdarg.h>
 
-static constexpr const char* printf_hex_digits_lower = "0123456789abcdef";
 extern "C" {
 // math functions:
 // https://gitlab.incom.co/CM-Shield/u-boot/commit/aa7839b39c2ee77f9ab8c393c56b8d812507dbb7
 // https://github.com/zayac/qemu-arm/blob/master/qemu/roms/ipxe/src/libgcc/__udivmoddi4.c
 
-union overlay64 {
-    u64 longw;
-    struct {
-        u32 lower;
-        u32 higher;
-    } words;
-};
+u64 __ashldi3(u64 num, unsigned int shift);
 
-u64 __ashldi3(u64 num, unsigned int shift)
-{
-    union overlay64 output;
+u64 __lshrdi3(u64 num, unsigned int shift);
 
-    output.longw = num;
-    if (shift >= 32) {
-        output.words.higher = output.words.lower << (shift - 32);
-        output.words.lower = 0;
-    } else {
-        if (!shift)
-            return num;
-        output.words.higher = (output.words.higher << shift) | (output.words.lower >> (32 - shift));
-        output.words.lower = output.words.lower << shift;
-    }
-    return output.longw;
+u64 __udivdi3(u64 num, u64 den);
+
+u64 __umoddi3(u64 num, u64 den);
+
+uint64_t __udivmoddi4(uint64_t num, uint64_t den, uint64_t* rem_p);
+
+size_t strlen(const char* str);
 }
 
-u64 __lshrdi3(u64 num, unsigned int shift)
-{
-    union overlay64 output;
-
-    output.longw = num;
-    if (shift >= 32) {
-        output.words.lower = output.words.higher >> (shift - 32);
-        output.words.higher = 0;
-    } else {
-        if (!shift)
-            return num;
-        output.words.lower = output.words.lower >> shift | (output.words.higher << (32 - shift));
-        output.words.higher = output.words.higher >> shift;
-    }
-    return output.longw;
-}
-
-#define MAX_32BIT_UINT ((((u64)1) << 32) - 1)
-
-static u64 _64bit_divide(u64 dividend, u64 divider, u64* rem_p)
-{
-    u64 result = 0;
-
-    /*
-	 * If divider is zero - let the rest of the system care about the
-	 * exception.
-	 */
-    if (!divider)
-        return 1 / (u32)divider;
-
-    /* As an optimization, let's not use 64 bit division unless we must. */
-    if (dividend <= MAX_32BIT_UINT) {
-        if (divider > MAX_32BIT_UINT) {
-            result = 0;
-            if (rem_p)
-                *rem_p = divider;
-        } else {
-            result = (u32)dividend / (u32)divider;
-            if (rem_p)
-                *rem_p = (u32)dividend % (u32)divider;
-        }
-        return result;
-    }
-
-    while (divider <= dividend) {
-        u64 locald = divider;
-        u64 limit = __lshrdi3(dividend, 1);
-        int shifts = 0;
-
-        while (locald <= limit) {
-            shifts++;
-            locald = locald + locald;
-        }
-        result |= __ashldi3(1, shifts);
-        dividend -= locald;
-    }
-
-    if (rem_p)
-        *rem_p = dividend;
-
-    return result;
-}
-
-u64 __udivdi3(u64 num, u64 den)
-{
-    return _64bit_divide(num, den, nullptr);
-}
-
-u64 __umoddi3(u64 num, u64 den)
-{
-    u64 v = 0;
-
-    _64bit_divide(num, den, &v);
-    return v;
-}
-
-uint64_t __udivmoddi4(uint64_t num, uint64_t den, uint64_t* rem_p)
-{
-    uint64_t quot = 0, qbit = 1;
-
-    if (den == 0) {
-        return 1 / ((unsigned)den); /* Intentional divide by zero, without
-				 triggering a compiler warning which
-				 would abort the build */
-    }
-
-    /* Left-justify denominator and count shift */
-    while ((int64_t)den >= 0) {
-        den <<= 1;
-        qbit <<= 1;
-    }
-
-    while (qbit) {
-        if (den <= num) {
-            num -= den;
-            quot += qbit;
-        }
-        den >>= 1;
-        qbit >>= 1;
-    }
-
-    if (rem_p)
-        *rem_p = num;
-
-    return quot;
-}
-
-size_t strlen(const char* str)
-{
-    size_t len = 0;
-    while (*(str++))
-        ++len;
-    return len;
-}
-}
 static constexpr const char* printf_hex_digits_upper = "0123456789ABCDEF";
+static constexpr const char* printf_hex_digits_lower = "0123456789abcdef";
 
 template<typename PutChFunc, typename T>
 ALWAYS_INLINE int print_hex(PutChFunc putch, char*& bufptr, T number, bool upper_case, bool alternate_form, bool left_pad, bool zero_pad, u8 field_width)
@@ -582,43 +455,10 @@ ALWAYS_INLINE int printf_internal(PutChFunc putch, char* buffer, const char*& fm
     return ret;
 }
 
-void local_dbgputstr(const char* str, int len)
-{
-    constexpr unsigned int function = Kernel::SC_dbgputch;
-    for (int i = 0; i < len; ++i) {
-        unsigned int result;
-        asm volatile("int $0x82"
-                     : "=a"(result)
-                     : "a"(function), "d"((u32)str[i])
-                     : "memory");
-    }
-}
+void local_dbgputstr(const char* str, int len);
 
-void local_dbgputc(char c)
-{
-    constexpr unsigned int function = Kernel::SC_dbgputch;
-    unsigned int result;
-    asm volatile("int $0x82"
-                 : "=a"(result)
-                 : "a"(function), "d"(c)
-                 : "memory");
-}
+void local_dbgputc(char c);
 
-int dbgprintf(const char* fmt, ...)
-{
-    va_list ap;
-    va_start(ap, fmt);
-    int ret = printf_internal([](char*&, char ch) { local_dbgputc(ch); }, nullptr, fmt, ap);
-    va_end(ap);
-    return ret;
-}
+int dbgprintf(const char* fmt, ...);
 
-void exit(int code)
-{
-    constexpr unsigned int function = Kernel::SC_exit;
-    unsigned int result;
-    asm volatile("int $0x82"
-                 : "=a"(result)
-                 : "a"(function), "d"(code)
-                 : "memory");
-}
+void exit(int code);
