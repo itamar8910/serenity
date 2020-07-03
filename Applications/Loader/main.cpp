@@ -28,31 +28,40 @@
 #include "DynamicSection.h"
 #include "Utils.h"
 
-int main(int x, char**)
+void load_object(const ELF::AuxiliaryData& aux_data)
 {
-    ELF::AuxiliaryData* aux_data = (ELF::AuxiliaryData*)x;
-    const char str[] = "loader\n";
-    local_dbgputstr(str, sizeof(str));
-    dbgprintf("hello %p\n", 0xdeadbeef);
-    dbgprintf("entry point: %p\n", aux_data->entry_point);
-    dbgprintf("program headers: %p\n", aux_data->program_headers);
-    dbgprintf("num program headers: %p\n", aux_data->num_program_headers);
-    dbgprintf("base address: %p\n", aux_data->base_address);
+    dbgprintf("entry point: %p\n", aux_data.entry_point);
+    dbgprintf("program headers: %p\n", aux_data.program_headers);
+    dbgprintf("num program headers: %p\n", aux_data.num_program_headers);
+    dbgprintf("base address: %p\n", aux_data.base_address);
 
     Elf32_Addr dynamic_section_addr = 0;
-    for (size_t i = 0; i < aux_data->num_program_headers; ++i) {
-        Elf32_Phdr* phdr = &((Elf32_Phdr*)aux_data->program_headers)[i];
+    for (size_t i = 0; i < aux_data.num_program_headers; ++i) {
+        Elf32_Phdr* phdr = &((Elf32_Phdr*)aux_data.program_headers)[i];
         dbgprintf("phdr: %p\n", phdr);
         dbgprintf("phdr type: %d\n", phdr->p_type);
         if (phdr->p_type == PT_DYNAMIC) {
-            dynamic_section_addr = aux_data->base_address + phdr->p_offset;
+            dynamic_section_addr = aux_data.base_address + phdr->p_offset;
         }
     }
 
     if (!dynamic_section_addr)
         exit(1);
 
-    DynamicSection dynamic_section(aux_data->base_address, dynamic_section_addr);
+    DynamicSection dynamic_section(aux_data.base_address, dynamic_section_addr);
+
+    /*
+    for each needed_lib:
+        load_program(needed_lib)
+        resolve_relocations();
+        call_init_functions();
+    */
+}
+
+int main(int x, char**)
+{
+    ELF::AuxiliaryData* aux_data = (ELF::AuxiliaryData*)x;
+    load_object(*aux_data);
 
     exit(0);
     return 0;

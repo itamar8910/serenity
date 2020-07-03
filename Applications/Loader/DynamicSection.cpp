@@ -35,7 +35,25 @@ DynamicSection::DynamicSection(Elf32_Addr base_adderss, Elf32_Addr dynamic_secti
 
 void DynamicSection::iterate_entries()
 {
+    List<uint32_t> m_needed_libraries_offsets;
     for (const Elf32_Dyn* current = m_entries; current->d_tag != DT_NULL; ++current) {
         dbgprintf("DT tag: %x\n", current->d_tag);
+        switch (current->d_tag) {
+        case DT_NEEDED:
+            dbgprintf("DT_NEEDED\n");
+            m_needed_libraries_offsets.append(current->d_un.d_val);
+            break;
+        case DT_STRTAB:
+            m_string_table = m_base_adderss + current->d_un.d_ptr;
+        }
+    }
+    dbgprintf("string table: %p\n", m_string_table);
+    for (auto offset : m_needed_libraries_offsets) {
+        dbgprintf("offset: %x\n", offset);
+        m_needed_libraries.append(reinterpret_cast<const char*>(m_string_table + offset));
+    }
+
+    for (const auto lib_name : m_needed_libraries) {
+        dbgprintf("library: %s\n", lib_name);
     }
 }

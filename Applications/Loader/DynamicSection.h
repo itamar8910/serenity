@@ -24,6 +24,7 @@
  */
 
 #pragma once
+#include "List.h"
 #include <LibELF/exec_elf.h>
 
 class DynamicSection {
@@ -36,4 +37,7 @@ private:
 
     Elf32_Addr m_base_adderss;
     const Elf32_Dyn* m_entries;
+
+    Elf32_Addr m_string_table;
+    List<const char*> m_needed_libraries;
 };
