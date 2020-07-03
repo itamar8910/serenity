@@ -462,3 +462,16 @@ void local_dbgputc(char c);
 int dbgprintf(const char* fmt, ...);
 
 void exit(int code);
+
+// #ifdef __clang__
+// #    pragma clang diagnostic push
+// #    pragma clang diagnostic ignored "-Wconsumed"
+// #endif
+// template<typename T>
+// inline T&& move(T& arg)
+// {
+//     return static_cast<T&&>(arg);
+// }
+// #ifdef __clang__
+// #    pragma clang diagnostic pop
+// #endif
