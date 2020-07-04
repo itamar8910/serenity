@@ -26,9 +26,22 @@
 #include <LibELF/AuxiliaryData.h>
 
 #include "DynamicSection.h"
+#include "Syscalls.h"
 #include "Utils.h"
 
-void load_object(const ELF::AuxiliaryData& aux_data)
+ELF::AuxiliaryData load_library(const char* library_name)
+{
+    constexpr size_t MAX_LIBNAME = 256;
+    char library_path[MAX_LIBNAME] = "/usr/lib/";
+    size_t libary_path_prefix_length = strlen(library_path);
+    strncpy(library_path + libary_path_prefix_length, library_name, MAX_LIBNAME - libary_path_prefix_length);
+    ASSERT(strlen(library_path) < MAX_LIBNAME);
+    // open("")
+    dbgprintf("loading: %s\n", library_path);
+    return {};
+}
+
+void handle_loaded_object(const ELF::AuxiliaryData& aux_data)
 {
     dbgprintf("entry point: %p\n", aux_data.entry_point);
     dbgprintf("program headers: %p\n", aux_data.program_headers);
@@ -50,6 +63,11 @@ void load_object(const ELF::AuxiliaryData& aux_data)
 
     DynamicSection dynamic_section(aux_data.base_address, dynamic_section_addr);
 
+    for (const auto needed_library : dynamic_section.needed_libraries()) {
+        load_library(needed_library);
+    }
+    // load_library()
+
     /*
     for each needed_lib:
         load_program(needed_lib)
@@ -61,7 +79,7 @@ void load_object(const ELF::AuxiliaryData& aux_data)
 int main(int x, char**)
 {
     ELF::AuxiliaryData* aux_data = (ELF::AuxiliaryData*)x;
-    load_object(*aux_data);
+    handle_loaded_object(*aux_data);
 
     exit(0);
     return 0;

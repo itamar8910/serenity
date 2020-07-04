@@ -25,12 +25,15 @@
 
 #pragma once
 #include "List.h"
+#include "Syscalls.h"
 #include <LibELF/exec_elf.h>
 
 class DynamicSection {
 public:
     explicit DynamicSection(Elf32_Addr base_adderss, Elf32_Addr dynamic_section_address);
     ~DynamicSection() = default;
+
+    List<const char*>& needed_libraries() { return m_needed_libraries; }
 
 private:
     void iterate_entries();

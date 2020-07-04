@@ -47,11 +47,6 @@ public:
             return m_node->value;
         }
 
-        // const T& operator*() const
-        // {
-        //     return m_node->value;
-        // }
-
         const T& operator*() const
         {
             return *m_node->value;
