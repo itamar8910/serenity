@@ -23,6 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 #include "Utils.h"
+#include "Syscalls.h"
 
 extern "C" {
 union overlay64 {
@@ -164,45 +165,23 @@ size_t strlen(const char* str)
         ++len;
     return len;
 }
-}
 
-void local_dbgputstr(const char* str, int len)
+char* strncpy(char* dest, const char* src, size_t n)
 {
-    constexpr unsigned int function = Kernel::SC_dbgputch;
-    for (int i = 0; i < len; ++i) {
-        unsigned int result;
-        asm volatile("int $0x82"
-                     : "=a"(result)
-                     : "a"(function), "d"((u32)str[i])
-                     : "memory");
-    }
+    size_t i;
+    for (i = 0; i < n && src[i] != '\0'; ++i)
+        dest[i] = src[i];
+    for (; i < n; ++i)
+        dest[i] = '\0';
+    return dest;
 }
-
-void local_dbgputc(char c)
-{
-    constexpr unsigned int function = Kernel::SC_dbgputch;
-    unsigned int result;
-    asm volatile("int $0x82"
-                 : "=a"(result)
-                 : "a"(function), "d"(c)
-                 : "memory");
-}
+} // End of "extern C"
 
 int dbgprintf(const char* fmt, ...)
 {
     va_list ap;
     va_start(ap, fmt);
-    int ret = printf_internal([](char*&, char ch) { local_dbgputc(ch); }, nullptr, fmt, ap);
+    int ret = printf_internal([](char*&, char ch) { dbgputc(ch); }, nullptr, fmt, ap);
     va_end(ap);
     return ret;
-}
-
-void exit(int code)
-{
-    constexpr unsigned int function = Kernel::SC_exit;
-    unsigned int result;
-    asm volatile("int $0x82"
-                 : "=a"(result)
-                 : "a"(function), "d"(code)
-                 : "memory");
 }

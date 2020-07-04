@@ -4,6 +4,7 @@ set(SOURCES
     DynamicSection.cpp
     Heap.cpp
     List.cpp
+    Syscalls.cpp
 )
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -nostdlib -pie")

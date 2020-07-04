@@ -1,4 +1,5 @@
 #include "Heap.h"
+#include "Syscalls.h"
 #include "Utils.h"
 
 #define HEAP_SIZE 65536

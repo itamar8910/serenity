@@ -44,7 +44,8 @@ u64 __umoddi3(u64 num, u64 den);
 
 uint64_t __udivmoddi4(uint64_t num, uint64_t den, uint64_t* rem_p);
 
-size_t strlen(const char* str);
+size_t strlen(const char*);
+char* strncpy(char*, const char*, size_t);
 }
 
 static constexpr const char* printf_hex_digits_upper = "0123456789ABCDEF";
@@ -455,13 +456,15 @@ ALWAYS_INLINE int printf_internal(PutChFunc putch, char* buffer, const char*& fm
     return ret;
 }
 
-void local_dbgputstr(const char* str, int len);
-
-void local_dbgputc(char c);
-
 int dbgprintf(const char* fmt, ...);
 
-void exit(int code);
+#define ASSERT(expr)                                    \
+    do {                                                \
+        if (__builtin_expect(!(expr), 0))               \
+            dbgprintf("Assertion failed: " #expr "\n"); \
+    } while (0)
+
+#define ASSERT_NOT_REACHED() assert(false)
 
 // #ifdef __clang__
 // #    pragma clang diagnostic push
