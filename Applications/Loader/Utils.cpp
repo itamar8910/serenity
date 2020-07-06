@@ -185,3 +185,32 @@ int dbgprintf(const char* fmt, ...)
     va_end(ap);
     return ret;
 }
+
+static void buffer_putch(char*& bufptr, char ch)
+{
+    *bufptr++ = ch;
+}
+
+int vsprintf(char* buffer, const char* fmt, va_list ap)
+{
+    int ret = printf_internal(buffer_putch, buffer, fmt, ap);
+    buffer[ret] = '\0';
+    return ret;
+}
+
+int sprintf(char* buffer, const char* fmt, ...)
+{
+    va_list ap;
+    va_start(ap, fmt);
+    int ret = vsprintf(buffer, fmt, ap);
+    va_end(ap);
+    return ret;
+}
+
+[[noreturn]] void hang()
+{
+    dbgprintf("hang\n");
+    while (1) {
+        sleep(100);
+    }
+}

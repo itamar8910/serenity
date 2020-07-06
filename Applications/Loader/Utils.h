@@ -46,6 +46,8 @@ uint64_t __udivmoddi4(uint64_t num, uint64_t den, uint64_t* rem_p);
 
 size_t strlen(const char*);
 char* strncpy(char*, const char*, size_t);
+
+int sprintf(char* buffer, const char* fmt, ...);
 }
 
 static constexpr const char* printf_hex_digits_upper = "0123456789ABCDEF";
@@ -457,11 +459,18 @@ ALWAYS_INLINE int printf_internal(PutChFunc putch, char* buffer, const char*& fm
 }
 
 int dbgprintf(const char* fmt, ...);
+[[noreturn]] void hang();
 
-#define ASSERT(expr)                                    \
-    do {                                                \
-        if (__builtin_expect(!(expr), 0))               \
-            dbgprintf("Assertion failed: " #expr "\n"); \
+#define __stringify_helper(x) #x
+#define __stringify(x) __stringify_helper(x)
+
+#define ASSERT(expr)                                                                            \
+    do {                                                                                        \
+        if (__builtin_expect(!(expr), 0)) {                                                     \
+            dbgprintf("Assertion failed: " #expr " (" __FILE__ ":" __stringify(__LINE__) ")"    \
+                                                                                         "\n"); \
+            exit(1);                                                                            \
+        }                                                                                       \
     } while (0)
 
 #define ASSERT_NOT_REACHED() assert(false)
