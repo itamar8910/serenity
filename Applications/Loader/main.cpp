@@ -100,9 +100,9 @@ ELF::AuxiliaryData load_library(const char* library_name)
 {
     constexpr size_t MAX_LIBNAME = 256;
     char library_path[MAX_LIBNAME] = "/usr/lib/";
-    size_t libary_path_prefix_length = strlen(library_path);
-    strncpy(library_path + libary_path_prefix_length, library_name, MAX_LIBNAME - libary_path_prefix_length);
-    ASSERT(strlen(library_path) < MAX_LIBNAME);
+    // TODO: snprintf
+    sprintf(library_path, "/usr/lib/%s", library_name);
+
     dbgprintf("loading: %s\n", library_path);
     int fd = open(library_path, O_RDONLY);
     ASSERT(fd >= 0);
