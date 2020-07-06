@@ -207,10 +207,40 @@ int sprintf(char* buffer, const char* fmt, ...)
     return ret;
 }
 
+void* memcpy(void* dest_ptr, const void* src_ptr, size_t n)
+{
+    size_t dest = (size_t)dest_ptr;
+    size_t src = (size_t)src_ptr;
+    // FIXME: Support starting at an unaligned address.
+    if (!(dest & 0x3) && !(src & 0x3) && n >= 12) {
+        size_t size_ts = n / sizeof(size_t);
+        asm volatile(
+            "rep movsl\n"
+            : "=S"(src), "=D"(dest)
+            : "S"(src), "D"(dest), "c"(size_ts)
+            : "memory");
+        n -= size_ts * sizeof(size_t);
+        if (n == 0)
+            return dest_ptr;
+    }
+    asm volatile(
+        "rep movsb\n" ::"S"(src), "D"(dest), "c"(n)
+        : "memory");
+    return dest_ptr;
+}
+
 [[noreturn]] void hang()
 {
     dbgprintf("hang\n");
     while (1) {
         sleep(100);
     }
+}
+
+int strcmp(const char* s1, const char* s2)
+{
+    while (*s1 == *s2++)
+        if (*s1++ == 0)
+            return 0;
+    return *(const unsigned char*)s1 - *(const unsigned char*)--s2;
 }

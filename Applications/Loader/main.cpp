@@ -30,6 +30,26 @@
 #include "Syscalls.h"
 #include "Utils.h"
 
+#define ALIGN_ROUND_UP(x, align) ((((size_t)(x)) + align - 1) & (~(align - 1)))
+
+uint8_t loaded_libs_buffer[sizeof(List<char*>)];
+List<const char*>* loaded_libs_list = nullptr;
+
+bool is_library_loaded(const char* lib_name)
+{
+    for (const auto loaded_lib_name : *loaded_libs_list) {
+        if (!strcmp(lib_name, loaded_lib_name)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void add_to_loaded_libraries(const char* lib_name)
+{
+    loaded_libs_list->append(lib_name);
+}
+
 ELF::AuxiliaryData load_library(int fd, const char* library_name, const Elf32_Ehdr* elf_header)
 {
     ASSERT(elf_header->e_type == ET_DYN);
@@ -41,7 +61,6 @@ ELF::AuxiliaryData load_library(int fd, const char* library_name, const Elf32_Eh
 
     for (size_t program_header_index = 0; program_header_index < elf_header->e_phnum; ++program_header_index) {
         const Elf32_Phdr* program_header = ((const Elf32_Phdr*)(image_base + elf_header->e_phoff)) + program_header_index;
-        dbgprintf("ph type: %d\n", program_header->p_type);
         if (program_header->p_type == PT_LOAD) {
             if (program_header->p_flags & PF_X) {
                 text_header = program_header;
@@ -66,34 +85,47 @@ ELF::AuxiliaryData load_library(int fd, const char* library_name, const Elf32_Eh
         nullptr,
         text_header->p_memsz,
         PROT_READ | PROT_EXEC,
-        MAP_SHARED,
+        MAP_SHARED, // TODO: Is this right?
         fd,
         text_header->p_offset,
         text_header->p_align,
         text_section_name);
+
     ASSERT(base_address);
 
-    // u32 text_segment_size = ALIGN_ROUND_UP(text_header.value().size_in_memory(), text_header.value().alignment());
+    dbgprintf("text[0] = 0x%x\n", *(uint32_t*)base_address);
 
-    // // TODO: use this
-    // // void* dynamic_section_address = dynamic_header.value().vaddr().offset((u32)m_base_address).as_ptr();
+    u32 text_segment_size = ALIGN_ROUND_UP(text_header->p_memsz, text_header->p_align);
 
-    // void* data_segment_begin = alloc_section_hook(
-    //     VirtualAddress((u32)m_base_address + text_segment_size),
-    //     data_header.value().size_in_memory(),
-    //     data_header.value().alignment(),
-    //     data_header.value().is_readable(),
-    //     data_header.value().is_writable(),
-    //     String::format("elf-alloc-%s%s", data_header.value().is_readable() ? "r" : "", data_header.value().is_writable() ? "w" : ""));
+    // TODO: use this
+    // void* dynamic_section_address = dynamic_header.value().vaddr().offset((u32)m_base_address).as_ptr();
 
-    // if (!data_segment_begin) {
-    //     return false;
-    // }
+    char data_section_name[256];
+    // TODO: snprintf
+    sprintf(data_section_name, "%s - data", library_name);
 
-    // VirtualAddress data_segment_actual_addr = data_header.value().vaddr().offset((u32)m_base_address);
-    // copy_to_user(data_segment_actual_addr.as_ptr(), (const u8*)data_header.value().raw_data(), data_header.value().size_in_image());
+    void* data_segment_begin = serenity_mmap(
+        (void*)((u32)base_address + text_segment_size),
+        data_header->p_memsz,
+        PROT_READ | PROT_WRITE,
+        MAP_ANONYMOUS | MAP_PRIVATE,
+        0, // no fd
+        0, // 0 offset
+        data_header->p_align,
+        data_section_name);
 
-    return {}; // TODO
+    ASSERT(data_segment_begin);
+
+    uint8_t* data_segment_actual_addr = (uint8_t*)(data_header->p_vaddr + ((u32)base_address));
+    memcpy(data_segment_actual_addr, (const u8*)elf_header + data_header->p_offset, data_header->p_filesz);
+    dbgprintf("data[0] = 0x%x\n", *(uint32_t*)data_segment_actual_addr);
+
+    ELF::AuxiliaryData aux;
+    aux.program_headers = (u32)base_address + elf_header->e_phoff;
+    aux.num_program_headers = elf_header->e_phnum;
+    aux.entry_point = elf_header->e_entry + (u32)base_address;
+    aux.base_address = (u32)base_address;
+    return aux;
 }
 
 ELF::AuxiliaryData load_library(const char* library_name)
@@ -106,12 +138,9 @@ ELF::AuxiliaryData load_library(const char* library_name)
     dbgprintf("loading: %s\n", library_path);
     int fd = open(library_path, O_RDONLY);
     ASSERT(fd >= 0);
-    dbgprintf("library fd: %d\n", fd);
     struct stat lib_stat;
     int rc = fstat(fd, &lib_stat);
-    dbgprintf("rc: %d\n", rc);
     ASSERT(!rc);
-    dbgprintf("lib elf size: %d\n", lib_stat.st_size);
 
     void* mmap_result = serenity_mmap(nullptr, lib_stat.st_size, PROT_READ, MAP_PRIVATE, fd, 0, PAGE_SIZE, library_path);
     ASSERT(mmap_result != nullptr);
@@ -120,9 +149,12 @@ ELF::AuxiliaryData load_library(const char* library_name)
 
     auto result = load_library(fd, library_name, elf_header);
 
+    munmap(mmap_result, lib_stat.st_size);
+    close(fd);
+
     // TODO: munmap, close
 
-    hang();
+    // hang();
     return result;
 }
 
@@ -149,22 +181,27 @@ void handle_loaded_object(const ELF::AuxiliaryData& aux_data)
     DynamicSection dynamic_section(aux_data.base_address, dynamic_section_addr);
 
     for (const auto needed_library : dynamic_section.needed_libraries()) {
-        load_library(needed_library);
-    }
-    // load_library()
 
+        if (!is_library_loaded(needed_library)) {
+            auto dependency_aux_data = load_library(needed_library);
+            handle_loaded_object(dependency_aux_data);
+        }
+    }
+    add_to_loaded_libraries(dynamic_section.object_name());
     /*
-    for each needed_lib:
-        load_program(needed_lib)
-        resolve_relocations();
-        call_init_functions();
+    TODO:
+    resolve_relocations();
+    call_init_functions();
     */
 }
 
 int main(int x, char**)
 {
+    new (loaded_libs_buffer)(List<char*>)();
+    loaded_libs_list = reinterpret_cast<List<const char*>*>(loaded_libs_buffer);
     ELF::AuxiliaryData* aux_data = (ELF::AuxiliaryData*)x;
     handle_loaded_object(*aux_data);
+    hang();
 
     exit(0);
     return 0;

@@ -48,6 +48,10 @@ size_t strlen(const char*);
 char* strncpy(char*, const char*, size_t);
 
 int sprintf(char* buffer, const char* fmt, ...);
+
+void* memcpy(void* dest_ptr, const void* src_ptr, size_t n);
+
+int strcmp(const char* s1, const char* s2);
 }
 
 static constexpr const char* printf_hex_digits_upper = "0123456789ABCDEF";
@@ -475,15 +479,9 @@ int dbgprintf(const char* fmt, ...);
 
 #define ASSERT_NOT_REACHED() assert(false)
 
-// #ifdef __clang__
-// #    pragma clang diagnostic push
-// #    pragma clang diagnostic ignored "-Wconsumed"
-// #endif
-// template<typename T>
-// inline T&& move(T& arg)
-// {
-//     return static_cast<T&&>(arg);
-// }
-// #ifdef __clang__
-// #    pragma clang diagnostic pop
-// #endif
+// placement new
+
+inline void* operator new(size_t, void* ptr)
+{
+    return ptr;
+}

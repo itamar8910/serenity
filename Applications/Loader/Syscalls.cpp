@@ -152,3 +152,13 @@ int fstat(int fd, struct stat* statbuf)
     int rc = syscall(SC_fstat, fd, statbuf);
     return rc;
 }
+
+int close(int fd)
+{
+    return syscall(SC_close, fd);
+}
+
+int munmap(void* addr, size_t size)
+{
+    return syscall(SC_munmap, addr, size);
+}

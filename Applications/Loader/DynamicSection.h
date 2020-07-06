@@ -26,6 +26,7 @@
 #pragma once
 #include "List.h"
 #include "Syscalls.h"
+#include "Utils.h"
 #include <LibELF/exec_elf.h>
 
 class DynamicSection {
@@ -34,13 +35,18 @@ public:
     ~DynamicSection() = default;
 
     List<const char*>& needed_libraries() { return m_needed_libraries; }
+    const char* object_name() const
+    {
+        return m_object_name ? m_object_name : "[UNNAMED]";
+    };
 
 private:
     void iterate_entries();
 
-    Elf32_Addr m_base_adderss;
-    const Elf32_Dyn* m_entries;
+    Elf32_Addr m_base_adderss { 0 };
+    const Elf32_Dyn* m_entries { nullptr };
 
-    Elf32_Addr m_string_table;
+    Elf32_Addr m_string_table { 0 };
     List<const char*> m_needed_libraries;
+    const char* m_object_name { nullptr };
 };

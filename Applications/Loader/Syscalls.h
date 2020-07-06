@@ -18,4 +18,6 @@ void* serenity_mmap(void* addr, size_t size, int prot,
     int flags, int fd, off_t offset,
     size_t alignment, const char* name);
 int fstat(int fd, struct stat* statbuf);
+int close(int fd);
+int munmap(void* addr, size_t size);
 }
