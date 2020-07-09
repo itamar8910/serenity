@@ -25,7 +25,7 @@
 
 #include <LibELF/AuxiliaryData.h>
 
-#include "DynamicSection.h"
+#include "DynamicObject.h"
 #include "LibC/limits.h"
 #include "Syscalls.h"
 #include "Utils.h"
@@ -152,9 +152,6 @@ ELF::AuxiliaryData load_library(const char* library_name)
     munmap(mmap_result, lib_stat.st_size);
     close(fd);
 
-    // TODO: munmap, close
-
-    // hang();
     return result;
 }
 
@@ -178,7 +175,7 @@ void handle_loaded_object(const ELF::AuxiliaryData& aux_data)
     if (!dynamic_section_addr)
         exit(1);
 
-    DynamicSection dynamic_section(aux_data.base_address, dynamic_section_addr);
+    DynamicObject dynamic_section(aux_data.base_address, dynamic_section_addr);
 
     for (const auto needed_library : dynamic_section.needed_libraries()) {
 

@@ -1,7 +1,7 @@
 set(SOURCES
     main.cpp
     Utils.cpp
-    DynamicSection.cpp
+    DynamicObject.cpp
     Heap.cpp
     List.cpp
     Syscalls.cpp
