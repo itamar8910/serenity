@@ -32,22 +32,17 @@
 
 #define ALIGN_ROUND_UP(x, align) ((((size_t)(x)) + align - 1) & (~(align - 1)))
 
-uint8_t loaded_libs_buffer[sizeof(List<char*>)];
-List<const char*>* loaded_libs_list = nullptr;
+uint8_t loaded_libs_buffer[sizeof(List<DynamicObject>)];
+List<DynamicObject>* loaded_libs_list = nullptr;
 
 bool is_library_loaded(const char* lib_name)
 {
-    for (const auto loaded_lib_name : *loaded_libs_list) {
-        if (!strcmp(lib_name, loaded_lib_name)) {
+    for (const auto loaded_lib : *loaded_libs_list) {
+        if (!strcmp(lib_name, loaded_lib.object_name())) {
             return true;
         }
     }
     return false;
-}
-
-void add_to_loaded_libraries(const char* lib_name)
-{
-    loaded_libs_list->append(lib_name);
 }
 
 ELF::AuxiliaryData load_library(int fd, const char* library_name, const Elf32_Ehdr* elf_header)
@@ -175,16 +170,18 @@ void handle_loaded_object(const ELF::AuxiliaryData& aux_data)
     if (!dynamic_section_addr)
         exit(1);
 
-    DynamicObject dynamic_section(aux_data.base_address, dynamic_section_addr);
+    DynamicObject dynamic_object(aux_data);
 
-    for (const auto needed_library : dynamic_section.needed_libraries()) {
+    for (const auto needed_library : dynamic_object.needed_libraries()) {
 
         if (!is_library_loaded(needed_library)) {
             auto dependency_aux_data = load_library(needed_library);
             handle_loaded_object(dependency_aux_data);
         }
     }
-    add_to_loaded_libraries(dynamic_section.object_name());
+
+    loaded_libs_list->append(dynamic_object);
+
     /*
     TODO:
     resolve_relocations();
@@ -195,7 +192,7 @@ void handle_loaded_object(const ELF::AuxiliaryData& aux_data)
 int main(int x, char**)
 {
     new (loaded_libs_buffer)(List<char*>)();
-    loaded_libs_list = reinterpret_cast<List<const char*>*>(loaded_libs_buffer);
+    loaded_libs_list = reinterpret_cast<List<DynamicObject>*>(loaded_libs_buffer);
     ELF::AuxiliaryData* aux_data = (ELF::AuxiliaryData*)x;
     handle_loaded_object(*aux_data);
     hang();

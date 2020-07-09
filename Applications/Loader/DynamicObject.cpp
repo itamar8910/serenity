@@ -26,11 +26,26 @@
 #include "DynamicObject.h"
 #include "Utils.h"
 
-DynamicObject::DynamicObject(Elf32_Addr base_adderss, Elf32_Addr dynamic_section_address)
-    : m_base_adderss(base_adderss)
-    , m_entries(reinterpret_cast<const Elf32_Dyn*>(dynamic_section_address))
+DynamicObject::DynamicObject(const ELF::AuxiliaryData& aux_data)
+    : m_base_adderss(aux_data.base_address)
+    , m_entries(reinterpret_cast<const Elf32_Dyn*>(find_dynamic_section_address(aux_data)))
 {
     iterate_entries();
+}
+
+Elf32_Addr DynamicObject::find_dynamic_section_address(const ELF::AuxiliaryData& aux_data)
+{
+    Elf32_Addr dynamic_section_addr = 0;
+    for (size_t i = 0; i < aux_data.num_program_headers; ++i) {
+        Elf32_Phdr* phdr = &((Elf32_Phdr*)aux_data.program_headers)[i];
+        dbgprintf("phdr: %p\n", phdr);
+        dbgprintf("phdr type: %d\n", phdr->p_type);
+        if (phdr->p_type == PT_DYNAMIC) {
+            dynamic_section_addr = aux_data.base_address + phdr->p_offset;
+        }
+    }
+    ASSERT(dynamic_section_addr);
+    return dynamic_section_addr;
 }
 
 void DynamicObject::iterate_entries()

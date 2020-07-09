@@ -27,11 +27,12 @@
 #include "List.h"
 #include "Syscalls.h"
 #include "Utils.h"
+#include <LibELF/AuxiliaryData.h>
 #include <LibELF/exec_elf.h>
 
 class DynamicObject {
 public:
-    explicit DynamicObject(Elf32_Addr base_adderss, Elf32_Addr dynamic_section_address);
+    explicit DynamicObject(const ELF::AuxiliaryData&);
     ~DynamicObject() = default;
 
     List<const char*>& needed_libraries() { return m_needed_libraries; }
@@ -41,6 +42,7 @@ public:
     };
 
 private:
+    static Elf32_Addr find_dynamic_section_address(const ELF::AuxiliaryData&);
     void iterate_entries();
 
     Elf32_Addr m_base_adderss { 0 };
