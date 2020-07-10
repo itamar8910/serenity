@@ -268,7 +268,18 @@ void do_plt_relocations(DynamicObject& dynamic_object)
 {
     (void)dynamic_object;
     dynamic_object.for_each_plt_relocation([&](DynamicObject::Relocation relocation) {
-        dbgprintf("PLT Relocation symbol: %s, type: %d\n", relocation.symbol().name(), relocation.type());
+        ASSERT(relocation.type() == R_386_JMP_SLOT);
+
+        auto sym = relocation.symbol();
+
+        u8* relocation_address = (u8*)relocation.address();
+        auto res = lookup_symbol(sym);
+        ASSERT(res.found);
+        u32 symbol_location = res.result;
+
+        dbgprintf("DynamicLoader: Jump slot relocation: putting %s (%p) into PLT at %p\n", sym.name(), symbol_location, relocation_address);
+
+        *(u32*)relocation_address = symbol_location;
     });
 }
 
@@ -325,6 +336,11 @@ int main(int x, char**)
     loaded_libs_list = reinterpret_cast<List<DynamicObject>*>(loaded_libs_buffer);
     ELF::AuxiliaryData* aux_data = (ELF::AuxiliaryData*)x;
     handle_loaded_object(*aux_data);
+
+    dbgprintf("jumping to entry point: %p\n", aux_data->base_address);
+    dbgprintf("entrypoint[0] = 0x%x\n", *((uint32_t*)aux_data->entry_point));
+    ((int (*)(int, char**))(aux_data->entry_point))(0, nullptr);
+
     hang();
 
     exit(0);
