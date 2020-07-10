@@ -28,7 +28,7 @@
 
 DynamicObject::DynamicObject(const ELF::AuxiliaryData& aux_data)
     : m_base_adderss(aux_data.base_address)
-    , m_entries(reinterpret_cast<const Elf32_Dyn*>(find_dynamic_section_address(aux_data)))
+    , m_dynamic_section_entries(reinterpret_cast<const Elf32_Dyn*>(find_dynamic_section_address(aux_data)))
 {
     iterate_entries();
 }
@@ -52,7 +52,7 @@ void DynamicObject::iterate_entries()
 {
     List<uint32_t> m_needed_libraries_offsets;
     int32_t object_name_string_table_offset = -1;
-    for (const Elf32_Dyn* current = m_entries; current->d_tag != DT_NULL; ++current) {
+    for (const Elf32_Dyn* current = m_dynamic_section_entries; current->d_tag != DT_NULL; ++current) {
         dbgprintf("DT tag: %x\n", current->d_tag);
         switch (current->d_tag) {
         case DT_NEEDED:
@@ -64,9 +64,16 @@ void DynamicObject::iterate_entries()
         case DT_SONAME:
             object_name_string_table_offset = current->d_un.d_val;
             break;
+        case DT_SYMTAB:
+            m_dyn_sym_table = (Elf32_Sym*)(m_base_adderss + current->d_un.d_val);
+            break;
+        case DT_HASH:
+            m_hash_section = m_base_adderss + current->d_un.d_ptr;
         }
     }
-    dbgprintf("string table: %p\n", m_string_table);
+
+    ASSERT(m_string_table);
+    ASSERT(m_dyn_sym_table);
 
     if (object_name_string_table_offset > 0) {
         m_object_name = reinterpret_cast<const char*>(m_string_table + object_name_string_table_offset);
@@ -77,6 +84,18 @@ void DynamicObject::iterate_entries()
     }
 
     for (const auto lib_name : m_needed_libraries) {
-        dbgprintf("library: %s\n", lib_name);
+        dbgprintf("needed library: %s\n", lib_name);
     }
+
+    m_symbol_count = ((Elf32_Word*)m_hash_section)[1];
+}
+
+DynamicObject::Symbol DynamicObject::symbol(size_t index) const
+{
+    return Symbol(*this, index, m_dyn_sym_table[index]);
+}
+
+const char* DynamicObject::symbol_string_table_string(Elf32_Word index) const
+{
+    return (const char*)(m_string_table + index);
 }

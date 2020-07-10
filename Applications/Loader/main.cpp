@@ -182,6 +182,11 @@ void handle_loaded_object(const ELF::AuxiliaryData& aux_data)
 
     loaded_libs_list->append(dynamic_object);
 
+    dbgprintf("object: %s\n", dynamic_object.object_name());
+    dynamic_object.for_each_symbol([](DynamicObject::Symbol s) {
+        dbgprintf("symbol: %s. defined? %d\n", s.name(), s.is_undefined() == false);
+    });
+
     /*
     TODO:
     resolve_relocations();
