@@ -40,12 +40,14 @@ public:
     {
         return m_object_name ? m_object_name : "[UNNAMED]";
     };
+    Elf32_Addr base_address() const { return m_base_adderss; }
 
     class Symbol;
     class Relocation;
 
     Symbol symbol(size_t index) const;
     Relocation relocation(size_t index) const;
+    Relocation plt_relocation(size_t index) const;
 
     class Symbol {
     public:
@@ -110,6 +112,8 @@ public:
     void for_each_symbol(Func f);
     template<typename Func>
     void for_each_relocation(Func f);
+    template<typename Func>
+    void for_each_plt_relocation(Func f);
 
     Symbol lookup_symbol(const char*) const;
 
@@ -118,7 +122,6 @@ private:
     void iterate_entries();
 
     const char* symbol_string_table_string(Elf32_Word index) const;
-    Elf32_Addr base_address() const { return m_base_adderss; }
 
     Elf32_Addr m_base_adderss { 0 };
     const Elf32_Dyn* m_dynamic_section_entries { nullptr };
@@ -130,15 +133,24 @@ private:
 
     Elf32_Rel* m_relocations_table { nullptr };
     Elf32_Word m_relocation_entry_size { 0 };
-    size_t m_relocations_count { 0 };
     Elf32_Word m_relocations_table_size { 0 };
-    List<const char*> m_needed_libraries;
+    size_t m_relocations_count { 0 };
+
+    Elf32_Addr m_plt_got_address { 0 };
+    Elf32_Rel* m_plt_relocations_table { nullptr };
+    Elf32_Word m_plt_relocations_table_size { 0 };
+    size_t m_plt_relocations_count { 0 };
+
+    List<const char*>
+        m_needed_libraries;
     const char* m_object_name { nullptr };
 };
 
 template<typename Func>
 void DynamicObject::for_each_symbol(Func f)
 {
+    if (!m_dyn_sym_table)
+        return;
     for (size_t i = 0; i < m_symbol_count; ++i) {
         f(symbol(i));
     }
@@ -147,7 +159,19 @@ void DynamicObject::for_each_symbol(Func f)
 template<typename Func>
 void DynamicObject::for_each_relocation(Func f)
 {
+    if (!m_relocations_table)
+        return;
     for (size_t i = 0; i < m_relocations_count; ++i) {
         f(relocation(i));
+    }
+}
+
+template<typename Func>
+void DynamicObject::for_each_plt_relocation(Func f)
+{
+    if (!m_plt_relocations_table)
+        return;
+    for (size_t i = 0; i < m_plt_relocations_count; ++i) {
+        f(plt_relocation(i));
     }
 }

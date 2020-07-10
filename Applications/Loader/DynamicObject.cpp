@@ -80,6 +80,18 @@ void DynamicObject::iterate_entries()
             m_relocation_entry_size = current->d_un.d_val;
             ASSERT(m_relocation_entry_size = sizeof(Elf32_Rel));
             break;
+        case DT_PLTREL:
+            ASSERT(current->d_un.d_val == DT_REL);
+            break;
+        case DT_PLTGOT:
+            m_plt_got_address = m_base_adderss + current->d_un.d_ptr;
+            break;
+        case DT_PLTRELSZ:
+            m_plt_relocations_table_size = current->d_un.d_val;
+            break;
+        case DT_JMPREL:
+            m_plt_relocations_table = (Elf32_Rel*)(m_base_adderss + current->d_un.d_ptr);
+            break;
         }
     }
 
@@ -104,6 +116,10 @@ void DynamicObject::iterate_entries()
         ASSERT(m_relocations_table_size);
         m_relocations_count = m_relocations_table_size / sizeof(Elf32_Rel);
     }
+    if (m_plt_relocations_table) {
+        ASSERT(m_plt_relocations_table_size);
+        m_plt_relocations_count = m_plt_relocations_table_size / sizeof(Elf32_Rel);
+    }
 }
 
 DynamicObject::Symbol DynamicObject::symbol(size_t index) const
@@ -114,6 +130,11 @@ DynamicObject::Symbol DynamicObject::symbol(size_t index) const
 DynamicObject::Relocation DynamicObject::relocation(size_t index) const
 {
     return Relocation(*this, m_relocations_table[index], index * m_relocation_entry_size);
+}
+
+DynamicObject::Relocation DynamicObject::plt_relocation(size_t index) const
+{
+    return Relocation(*this, m_plt_relocations_table[index], index * m_relocation_entry_size);
 }
 
 const char* DynamicObject::symbol_string_table_string(Elf32_Word index) const

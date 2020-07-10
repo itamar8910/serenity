@@ -477,7 +477,7 @@ int dbgprintf(const char* fmt, ...);
         }                                                                                       \
     } while (0)
 
-#define ASSERT_NOT_REACHED() assert(false)
+#define ASSERT_NOT_REACHED() ASSERT(false)
 
 // placement new
 

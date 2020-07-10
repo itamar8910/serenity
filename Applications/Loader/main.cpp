@@ -150,6 +150,128 @@ ELF::AuxiliaryData load_library(const char* library_name)
     return result;
 }
 
+struct SymbolLookupResult {
+    bool found { false };
+    Elf32_Addr result { 0 };
+};
+
+SymbolLookupResult global_symbol_lookup(const char* symbol_name)
+{
+    for (auto& object : *loaded_libs_list) {
+        auto res = object.lookup_symbol(symbol_name);
+        if (res.is_undefined())
+            continue;
+        return { true, res.address() };
+    }
+    return {};
+}
+
+SymbolLookupResult lookup_symbol(const DynamicObject::Symbol& symbol)
+{
+    if (!symbol.is_undefined()) {
+        return { true, symbol.address() };
+    }
+    dbgprintf("looking up symbol: %s\n", symbol.name());
+    return global_symbol_lookup(symbol.name());
+}
+
+void do_relocations(DynamicObject& dynamic_object)
+{
+    dynamic_object.for_each_relocation([&](DynamicObject::Relocation relocation) {
+        dbgprintf("Relocation symbol: %s, type: %d\n", relocation.symbol().name(), relocation.type());
+        u32* patch_ptr = (u32*)(dynamic_object.base_address() + relocation.offset());
+        switch (relocation.type()) {
+        case R_386_NONE:
+            // Apparently most loaders will just skip these?
+            // Seems if the 'link editor' generates one something is funky with your code
+            dbgprintf("None relocation. No symbol, no nothin.\n");
+            break;
+        case R_386_32: {
+            auto symbol = relocation.symbol();
+            dbgprintf("Absolute relocation: name: '%s', value: %p\n", symbol.name(), symbol.value());
+            auto res = lookup_symbol(symbol);
+            ASSERT(res.found);
+            u32 symbol_address = res.result;
+            *patch_ptr += symbol_address;
+            dbgprintf("   Symbol address: %p\n", *patch_ptr);
+            break;
+        }
+        case R_386_PC32: {
+            auto symbol = relocation.symbol();
+            dbgprintf("PC-relative relocation: '%s', value: %p\n", symbol.name(), symbol.value());
+            auto res = lookup_symbol(symbol);
+            ASSERT(res.found);
+            u32 relative_offset = (res.result - (relocation.offset() + dynamic_object.base_address()));
+            *patch_ptr += relative_offset;
+            dbgprintf("   Symbol address: %p\n", *patch_ptr);
+            break;
+        }
+        case R_386_GLOB_DAT: {
+            auto symbol = relocation.symbol();
+            dbgprintf("Global data relocation: '%s', value: %p\n", symbol.name(), symbol.value());
+            auto res = lookup_symbol(symbol);
+            ASSERT(res.found);
+            u32 symbol_location = res.result;
+            ASSERT(symbol_location != dynamic_object.base_address());
+            *patch_ptr = symbol_location;
+            dbgprintf("   Symbol address: %p\n", *patch_ptr);
+            break;
+        }
+        case R_386_RELATIVE: {
+            // FIXME: According to the spec, R_386_relative ones must be done first.
+            //     We could explicitly do them first using m_number_of_relocatoins from DT_RELCOUNT
+            //     However, our compiler is nice enough to put them at the front of the relocations for us :)
+            dbgprintf("Load address relocation at offset %X\n", relocation.offset());
+            dbgprintf("    patch ptr == %p, adding load base address (%p) to it and storing %p\n", *patch_ptr, dynamic_object.base_address(), *patch_ptr + dynamic_object.base_address());
+            *patch_ptr += dynamic_object.base_address(); // + addend for RelA (addend for Rel is stored at addr)
+            break;
+        }
+        case R_386_TLS_TPOFF: {
+            ASSERT_NOT_REACHED();
+            // VERBOSE("Relocation type: R_386_TLS_TPOFF at offset %X\n", relocation.offset());
+            // // FIXME: this can't be right? I have no idea what "negative offset into TLS storage" means...
+            // // FIXME: Check m_has_static_tls and do something different for dynamic TLS
+            // dbg() << "R_386_TLS_TPOFF: *patch_ptr: " << (void*)(*patch_ptr);
+            // auto symbol = relocation.symbol();
+            // VERBOSE("TLS relocation: '%s', value: %p\n", symbol.name(), symbol.value());
+            // u32 symbol_location = lookup_symbol(symbol).value();
+            // VERBOSE("symbol location: %d\n", symbol_location);
+            // *patch_ptr = relocation.offset() - (u32)m_tls_segment_address.as_ptr() - *patch_ptr;
+            // break;
+        }
+        case R_386_TLS_DTPMOD3: {
+            ASSERT_NOT_REACHED();
+            // // FIXME
+            // dbg() << "TODO: Offset in TLS block";
+            // ASSERT_NOT_REACHED();
+            // break;
+        }
+        case R_386_TLS_DTPOFF32: {
+            ASSERT_NOT_REACHED();
+            // // FIXME
+            // dbg() << "TOODO: R_386_TLS_DTPOFF32";
+            // ASSERT_NOT_REACHED();
+            // break;
+        }
+        default:
+            // Raise the alarm! Someone needs to implement this relocation type
+            dbgprintf("Found a new exciting relocation type %d\n", relocation.type());
+            // printf("DynamicLoader: Found unknown relocation type %d\n", relocation.type());
+            ASSERT_NOT_REACHED();
+            break;
+        }
+        return IterationDecision::Continue;
+    });
+}
+
+void do_plt_relocations(DynamicObject& dynamic_object)
+{
+    (void)dynamic_object;
+    dynamic_object.for_each_plt_relocation([&](DynamicObject::Relocation relocation) {
+        dbgprintf("PLT Relocation symbol: %s, type: %d\n", relocation.symbol().name(), relocation.type());
+    });
+}
+
 void handle_loaded_object(const ELF::AuxiliaryData& aux_data)
 {
     dbgprintf("entry point: %p\n", aux_data.entry_point);
@@ -186,10 +308,9 @@ void handle_loaded_object(const ELF::AuxiliaryData& aux_data)
         dbgprintf("symbol: %s. defined? %d\n", s.name(), s.is_undefined() == false);
     });
 
-    dbgprintf("lookup symbol a: %d\n", dynamic_object.lookup_symbol("a").is_undefined() == false);
-    dynamic_object.for_each_relocation([](DynamicObject::Relocation r) {
-        dbgprintf("Relocation symbol: %s, type: %d\n", r.symbol().name(), r.type());
-    });
+    do_relocations(dynamic_object);
+    do_plt_relocations(dynamic_object);
+    //call_init_functions(dynamic_object);
 
     /*
     TODO:
