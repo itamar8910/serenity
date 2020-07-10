@@ -83,6 +83,8 @@ public:
     template<typename Func>
     void for_each_symbol(Func f);
 
+    Symbol lookup_symbol(const char*) const;
+
 private:
     static Elf32_Addr find_dynamic_section_address(const ELF::AuxiliaryData&);
     void iterate_entries();

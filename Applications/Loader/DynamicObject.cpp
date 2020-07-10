@@ -99,3 +99,36 @@ const char* DynamicObject::symbol_string_table_string(Elf32_Word index) const
 {
     return (const char*)(m_string_table + index);
 }
+
+unsigned long
+elf_Hash(const unsigned char* name)
+{
+    unsigned long h = 0, g;
+
+    while (*name) {
+        h = (h << 4) + *name++;
+        if ((g = (h & 0xf0000000)))
+            h ^= g >> 24;
+        h &= ~g;
+    }
+    return h;
+}
+
+DynamicObject::Symbol DynamicObject::lookup_symbol(const char* name) const
+{
+    // Elf32_Word n_chains = m_symbol_count;
+    Elf32_Word n_buckets = ((Elf32_Word*)m_hash_section)[0];
+    Elf32_Word* buckets = &((Elf32_Word*)m_hash_section)[2];
+    Elf32_Word* chains = &((Elf32_Word*)m_hash_section)[n_buckets + 2];
+
+    unsigned long hash_value = elf_Hash((const unsigned char*)name);
+    Elf32_Word current_index = buckets[hash_value % n_buckets];
+    while (current_index != STN_UNDEF) {
+        Symbol sym = symbol(current_index);
+        if (!strcmp(sym.name(), name)) {
+            return sym;
+        }
+        current_index = chains[current_index];
+    }
+    return Symbol::create_undefined(*this);
+}

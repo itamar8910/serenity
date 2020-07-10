@@ -173,7 +173,6 @@ void handle_loaded_object(const ELF::AuxiliaryData& aux_data)
     DynamicObject dynamic_object(aux_data);
 
     for (const auto needed_library : dynamic_object.needed_libraries()) {
-
         if (!is_library_loaded(needed_library)) {
             auto dependency_aux_data = load_library(needed_library);
             handle_loaded_object(dependency_aux_data);
@@ -186,6 +185,8 @@ void handle_loaded_object(const ELF::AuxiliaryData& aux_data)
     dynamic_object.for_each_symbol([](DynamicObject::Symbol s) {
         dbgprintf("symbol: %s. defined? %d\n", s.name(), s.is_undefined() == false);
     });
+
+    dbgprintf("lookup symbol a: %d\n", dynamic_object.lookup_symbol("a").is_undefined() == false);
 
     /*
     TODO:
