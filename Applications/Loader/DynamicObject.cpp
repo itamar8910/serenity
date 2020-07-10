@@ -69,11 +69,23 @@ void DynamicObject::iterate_entries()
             break;
         case DT_HASH:
             m_hash_section = m_base_adderss + current->d_un.d_ptr;
+            break;
+        case DT_REL:
+            m_relocations_table = (Elf32_Rel*)(m_base_adderss + current->d_un.d_ptr);
+            break;
+        case DT_RELSZ:
+            m_relocations_table_size = current->d_un.d_val;
+            break;
+        case DT_RELENT:
+            m_relocation_entry_size = current->d_un.d_val;
+            ASSERT(m_relocation_entry_size = sizeof(Elf32_Rel));
+            break;
         }
     }
 
     ASSERT(m_string_table);
     ASSERT(m_dyn_sym_table);
+    ASSERT(m_hash_section);
 
     if (object_name_string_table_offset > 0) {
         m_object_name = reinterpret_cast<const char*>(m_string_table + object_name_string_table_offset);
@@ -88,11 +100,20 @@ void DynamicObject::iterate_entries()
     }
 
     m_symbol_count = ((Elf32_Word*)m_hash_section)[1];
+    if (m_relocations_table) {
+        ASSERT(m_relocations_table_size);
+        m_relocations_count = m_relocations_table_size / sizeof(Elf32_Rel);
+    }
 }
 
 DynamicObject::Symbol DynamicObject::symbol(size_t index) const
 {
     return Symbol(*this, index, m_dyn_sym_table[index]);
+}
+
+DynamicObject::Relocation DynamicObject::relocation(size_t index) const
+{
+    return Relocation(*this, m_relocations_table[index], index * m_relocation_entry_size);
 }
 
 const char* DynamicObject::symbol_string_table_string(Elf32_Word index) const

@@ -42,8 +42,10 @@ public:
     };
 
     class Symbol;
+    class Relocation;
 
     Symbol symbol(size_t index) const;
+    Relocation relocation(size_t index) const;
 
     class Symbol {
     public:
@@ -80,8 +82,34 @@ public:
         bool m_is_undefined { false };
     };
 
+    class Relocation {
+    public:
+        Relocation(const DynamicObject& dynamic, const Elf32_Rel& rel, unsigned offset_in_section)
+            : m_dynamic(dynamic)
+            , m_rel(rel)
+            , m_offset_in_section(offset_in_section)
+        {
+        }
+
+        ~Relocation() {}
+
+        unsigned offset_in_section() const { return m_offset_in_section; }
+        unsigned offset() const { return m_rel.r_offset; }
+        unsigned type() const { return ELF32_R_TYPE(m_rel.r_info); }
+        unsigned symbol_index() const { return ELF32_R_SYM(m_rel.r_info); }
+        const Symbol symbol() const { return m_dynamic.symbol(symbol_index()); }
+        Elf32_Addr address() const { return m_dynamic.base_address() + offset(); }
+
+    private:
+        const DynamicObject& m_dynamic;
+        const Elf32_Rel& m_rel;
+        const unsigned m_offset_in_section;
+    };
+
     template<typename Func>
     void for_each_symbol(Func f);
+    template<typename Func>
+    void for_each_relocation(Func f);
 
     Symbol lookup_symbol(const char*) const;
 
@@ -97,9 +125,13 @@ private:
 
     Elf32_Addr m_string_table { 0 };
     Elf32_Addr m_hash_section { 0 };
-    Elf32_Sym* m_dyn_sym_table { 0 };
+    Elf32_Sym* m_dyn_sym_table { nullptr };
     size_t m_symbol_count { 0 };
 
+    Elf32_Rel* m_relocations_table { nullptr };
+    Elf32_Word m_relocation_entry_size { 0 };
+    size_t m_relocations_count { 0 };
+    Elf32_Word m_relocations_table_size { 0 };
     List<const char*> m_needed_libraries;
     const char* m_object_name { nullptr };
 };
@@ -109,5 +141,13 @@ void DynamicObject::for_each_symbol(Func f)
 {
     for (size_t i = 0; i < m_symbol_count; ++i) {
         f(symbol(i));
+    }
+}
+
+template<typename Func>
+void DynamicObject::for_each_relocation(Func f)
+{
+    for (size_t i = 0; i < m_relocations_count; ++i) {
+        f(relocation(i));
     }
 }

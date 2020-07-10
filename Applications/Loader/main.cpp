@@ -187,6 +187,9 @@ void handle_loaded_object(const ELF::AuxiliaryData& aux_data)
     });
 
     dbgprintf("lookup symbol a: %d\n", dynamic_object.lookup_symbol("a").is_undefined() == false);
+    dynamic_object.for_each_relocation([](DynamicObject::Relocation r) {
+        dbgprintf("Relocation symbol: %s, type: %d\n", r.symbol().name(), r.type());
+    });
 
     /*
     TODO:
