@@ -283,6 +283,17 @@ void do_plt_relocations(DynamicObject& dynamic_object)
     });
 }
 
+void call_init_functions(DynamicObject& dynamic_object)
+{
+    if (dynamic_object.has_init_section()) {
+        dynamic_object.init_section_function()();
+    }
+    dynamic_object.for_each_initialization_array_function([](DynamicObject::InitializationFunction func) {
+        dbgprintf("jumping to initialization function: %p\n", func);
+        func();
+    });
+}
+
 void handle_loaded_object(const ELF::AuxiliaryData& aux_data)
 {
     dbgprintf("entry point: %p\n", aux_data.entry_point);
@@ -321,7 +332,7 @@ void handle_loaded_object(const ELF::AuxiliaryData& aux_data)
 
     do_relocations(dynamic_object);
     do_plt_relocations(dynamic_object);
-    //call_init_functions(dynamic_object);
+    call_init_functions(dynamic_object);
 
     /*
     TODO:
@@ -339,7 +350,8 @@ int main(int x, char**)
 
     dbgprintf("jumping to entry point: %p\n", aux_data->base_address);
     dbgprintf("entrypoint[0] = 0x%x\n", *((uint32_t*)aux_data->entry_point));
-    ((int (*)(int, char**))(aux_data->entry_point))(0, nullptr);
+    int result = ((int (*)(int, char**))(aux_data->entry_point))(0, nullptr);
+    dbgprintf("result: %d\n", result);
 
     hang();
 

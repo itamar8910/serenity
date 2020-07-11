@@ -81,6 +81,7 @@ void DynamicObject::iterate_entries()
             ASSERT(m_relocation_entry_size = sizeof(Elf32_Rel));
             break;
         case DT_PLTREL:
+            // TODO: Do we need to support RELA here?
             ASSERT(current->d_un.d_val == DT_REL);
             break;
         case DT_PLTGOT:
@@ -91,6 +92,15 @@ void DynamicObject::iterate_entries()
             break;
         case DT_JMPREL:
             m_plt_relocations_table = (Elf32_Rel*)(m_base_adderss + current->d_un.d_ptr);
+            break;
+        case DT_INIT:
+            m_init_section = m_base_adderss + current->d_un.d_ptr;
+            break;
+        case DT_INIT_ARRAY:
+            m_init_array = m_base_adderss + current->d_un.d_ptr;
+            break;
+        case DT_INIT_ARRAYSZ:
+            m_init_array_size = current->d_un.d_val;
             break;
         }
     }

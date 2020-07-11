@@ -40,7 +40,16 @@ public:
     {
         return m_object_name ? m_object_name : "[UNNAMED]";
     };
+
     Elf32_Addr base_address() const { return m_base_adderss; }
+
+    typedef void (*InitializationFunction)();
+    bool has_init_section() const { return m_init_section != 0; }
+    InitializationFunction init_section_function() const
+    {
+        ASSERT(has_init_section());
+        return *(InitializationFunction*)m_init_section;
+    }
 
     class Symbol;
     class Relocation;
@@ -114,6 +123,8 @@ public:
     void for_each_relocation(Func f);
     template<typename Func>
     void for_each_plt_relocation(Func f);
+    template<typename Func>
+    void for_each_initialization_array_function(Func f);
 
     Symbol lookup_symbol(const char*) const;
 
@@ -140,6 +151,10 @@ private:
     Elf32_Rel* m_plt_relocations_table { nullptr };
     Elf32_Word m_plt_relocations_table_size { 0 };
     size_t m_plt_relocations_count { 0 };
+
+    Elf32_Addr m_init_section { 0 };
+    Elf32_Addr m_init_array { 0 };
+    Elf32_Word m_init_array_size { 0 };
 
     List<const char*>
         m_needed_libraries;
@@ -173,5 +188,16 @@ void DynamicObject::for_each_plt_relocation(Func f)
         return;
     for (size_t i = 0; i < m_plt_relocations_count; ++i) {
         f(plt_relocation(i));
+    }
+}
+
+template<typename Func>
+void DynamicObject::for_each_initialization_array_function(Func f)
+{
+    if (!m_init_array)
+        return;
+    for (size_t i = 0; i < (m_init_array_size / sizeof(void*)); ++i) {
+        InitializationFunction current = ((InitializationFunction*)(m_init_array))[i];
+        f(current);
     }
 }
