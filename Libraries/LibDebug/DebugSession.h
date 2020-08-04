@@ -157,8 +157,9 @@ void DebugSession::run(Callback callback)
 
     for (;;) {
         if (state == State::FreeRun || state == State::Syscall) {
-            if (do_continue_and_wait())
+            if (do_continue_and_wait()) {
                 break;
+            }
         }
 
         auto regs = get_registers();

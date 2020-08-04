@@ -118,6 +118,12 @@ void set_edit_mode(EditMode mode)
     }
 }
 
+static void build(TerminalWrapper&);
+static void run(TerminalWrapper&);
+void open_project(String);
+void open_file(const String&);
+bool make_is_available();
+
 EditorWrapper& current_editor_wrapper()
 {
     ASSERT(g_current_editor_wrapper);
@@ -129,15 +135,29 @@ Editor& current_editor()
     return current_editor_wrapper().editor();
 }
 
+static String get_full_path_of_serenity_source(const String& file)
+{
+    auto path_parts = LexicalPath(file).parts();
+    ASSERT(path_parts[0] == "..");
+    path_parts.remove(0);
+    StringBuilder relative_path_builder;
+    relative_path_builder.join("/", path_parts);
+    constexpr char SERENITY_LIBS_PREFIX[] = "/usr/share/serenity";
+    LexicalPath serenity_sources_base(SERENITY_LIBS_PREFIX);
+    return String::format("%s/%s", serenity_sources_base.string().characters(), relative_path_builder.to_string().characters());
+}
+
 NonnullRefPtr<EditorWrapper> get_editor_of_file(const String& file)
 {
-    for (auto& wrapper : g_all_editor_wrappers) {
-        String wrapper_file = wrapper.filename_label().text();
-        if (wrapper_file == file || String::format("./%s", wrapper_file.characters()) == file) {
-            return wrapper;
-        }
+    String file_path = file;
+
+    if (file.starts_with("../")) {
+        // if (file.starts_with("../Libraries/") || file.starts_with("../AK/")) {
+        file_path = get_full_path_of_serenity_source(file);
     }
-    ASSERT_NOT_REACHED();
+
+    open_file(file_path);
+    return current_editor_wrapper();
 }
 
 String get_project_executable_path()
@@ -146,12 +166,6 @@ String get_project_executable_path()
     // TODO: Perhaps a Makefile rule for getting the value of $(PROGRAM) would be better?
     return g_project->path().substring(0, g_project->path().index_of(".").value());
 }
-
-static void build(TerminalWrapper&);
-static void run(TerminalWrapper&);
-void open_project(String);
-void open_file(const String&);
-bool make_is_available();
 
 int main(int argc, char** argv)
 {
@@ -619,27 +633,38 @@ int main(int argc, char** argv)
                 dbg() << "Could not find source position for address: " << (void*)regs.eip;
                 return Debugger::HasControlPassedToUser::No;
             }
-            current_editor_in_execution = get_editor_of_file(source_position.value().file_path);
-            current_editor_in_execution->editor().set_execution_position(source_position.value().line_number - 1);
-            debug_info_widget.update_state(debug_session, regs);
-            continue_action->set_enabled(true);
-            single_step_action->set_enabled(true);
-            reveal_action_tab(debug_info_widget);
+
+            Core::EventLoop::main().post_event(
+                *g_window,
+                make<Core::DeferredInvocationEvent>(
+                    [&, source_position](auto&) {
+                        current_editor_in_execution = get_editor_of_file(source_position.value().file_path);
+                        current_editor_in_execution->editor().set_execution_position(source_position.value().line_number - 1);
+                        debug_info_widget.update_state(*Debugger::the().session(), regs);
+                        continue_action->set_enabled(true);
+                        single_step_action->set_enabled(true);
+                        reveal_action_tab(debug_info_widget);
+                    }));
+            Core::EventLoop::wake();
+
             return Debugger::HasControlPassedToUser::Yes;
         },
         [&]() {
             dbg() << "Program continued";
-            continue_action->set_enabled(false);
-            single_step_action->set_enabled(false);
-            if (current_editor_in_execution) {
-                current_editor_in_execution->editor().clear_execution_position();
-            }
+            Core::EventLoop::main().post_event(*g_window, make<Core::DeferredInvocationEvent>([&](auto&) {
+                continue_action->set_enabled(false);
+                single_step_action->set_enabled(false);
+                if (current_editor_in_execution) {
+                    current_editor_in_execution->editor().clear_execution_position();
+                }
+            }));
+            Core::EventLoop::wake();
         },
         [&]() {
             dbg() << "Program exited";
-            debug_info_widget.program_stopped();
-            hide_action_tabs();
-            Core::EventLoop::main().post_event(*g_window, make<Core::DeferredInvocationEvent>([=](auto&) {
+            Core::EventLoop::main().post_event(*g_window, make<Core::DeferredInvocationEvent>([&](auto&) {
+                debug_info_widget.program_stopped();
+                hide_action_tabs();
                 GUI::MessageBox::show(g_window, "Program Exited", "Debugger", GUI::MessageBox::Type::Information);
             }));
             Core::EventLoop::wake();
@@ -763,7 +788,8 @@ void open_file(const String& filename)
     }
 
     g_currently_open_file = filename;
-    g_window->set_title(String::format("%s - HackStudio", g_currently_open_file.characters()));
+    String title = String::format("%s - HackStudio", g_currently_open_file.characters());
+    g_window->set_title(title);
     g_project_tree_view->update();
 
     current_editor_wrapper().filename_label().set_text(filename);

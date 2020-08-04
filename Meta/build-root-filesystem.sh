@@ -137,6 +137,10 @@ chown -R 100:100 mnt/home/anon
 chown -R 200:200 mnt/home/nona
 echo "done"
 
+
+git clone file://"$SERENITY_ROOT" --depth 1 mnt/usr/share/serenity/
+chown -R 100:100 mnt/usr/share/serenity
+
 printf "installing shortcuts... "
 ln -s Shell mnt/bin/sh
 ln -s test mnt/bin/[
