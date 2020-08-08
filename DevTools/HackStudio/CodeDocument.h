@@ -1,5 +1,6 @@
+
 /*
- * Copyright (c) 2018-2020, Andreas Kling <kling@serenityos.org>
+ * Copyright (c) 2020, Itamar S. <itamar8910@gmail.com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,27 +26,25 @@
  */
 
 #pragma once
+#include <LibGUI/TextDocument.h>
 
-#include "CodeDocument.h"
-#include <AK/ByteBuffer.h>
-#include <AK/NonnullRefPtr.h>
-#include <AK/RefCounted.h>
-#include <AK/String.h>
-
-class ProjectFile : public RefCounted<ProjectFile> {
+namespace GUI {
+class CodeDocument final : public TextDocument {
 public:
-    static NonnullRefPtr<ProjectFile> construct_with_name(const String& name)
-    {
-        return adopt(*new ProjectFile(name));
-    }
+    static NonnullRefPtr<CodeDocument> create(Client* client = nullptr);
 
-    const String& name() const { return m_name; }
+    const Vector<size_t>& breakpoint_lines() const { return m_breakpoint_lines; }
+    Vector<size_t>& breakpoint_lines() { return m_breakpoint_lines; }
+    Optional<size_t> execution_position() const { return m_execution_position; }
+    void set_execution_position(size_t line) { m_execution_position = line; }
+    void clear_execution_position() { m_execution_position.clear(); }
 
-    const GUI::TextDocument& document() const;
+    virtual bool is_code_document() const override final { return true; }
 
 private:
-    explicit ProjectFile(const String& name);
+    explicit CodeDocument(Client* client);
 
-    String m_name;
-    mutable RefPtr<GUI::CodeDocument> m_document;
+    Vector<size_t> m_breakpoint_lines;
+    Optional<size_t> m_execution_position;
 };
+}
