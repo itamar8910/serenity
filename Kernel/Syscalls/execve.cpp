@@ -194,6 +194,7 @@ int Process::load(NonnullRefPtr<FileDescription> main_program_description, RefPt
 
     m_load_offset = interpreter_load_result.value().load_offset;
     m_entry_eip = interpreter_load_result.value().entry_eip;
+    // dbg() << "loader load offset: " << (void*)interpreter_load_result.value().;
 
     // TLS allocation will be done in userspace by the loader
     m_master_tls_region = nullptr;
