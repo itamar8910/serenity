@@ -202,6 +202,7 @@ static void load_elf(const String& name)
         }
     }
 
+    dbg() << "loading: " << name;
     auto dynamic_object = loader->load_from_image(RTLD_GLOBAL, g_total_tls_size);
     ASSERT(!dynamic_object.is_null());
     g_loaded_objects.set(name, dynamic_object.release_nonnull());

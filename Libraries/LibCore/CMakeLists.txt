@@ -34,3 +34,7 @@ set(SOURCES
 
 serenity_lib(LibCore core)
 target_link_libraries(LibCore LibC)
+
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS_WITHOUT_STATIC} -fpic")
+serenity_shared_lib(LibCoreShared core)
+target_link_libraries(LibCoreShared LibCShared LibCryptShared)
