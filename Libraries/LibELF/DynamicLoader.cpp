@@ -296,13 +296,15 @@ void DynamicLoader::do_relocations(size_t total_tls_size)
         case R_386_GLOB_DAT: {
             auto symbol = relocation.symbol();
             if (!strcmp(symbol.name(), "__deregister_frame_info") || !strcmp(symbol.name(), "_ITM_registerTMCloneTable")
-                || !strcmp(symbol.name(), "_ITM_deregisterTMCloneTable") || !strcmp(symbol.name(), "__register_frame_info")) {
+                || !strcmp(symbol.name(), "_ITM_deregisterTMCloneTable") || !strcmp(symbol.name(), "__register_frame_info")
+                || !strcmp(symbol.name(), "__cxa_finalize")) {
                 // We do not support these
                 break;
             }
             VERBOSE("Global data relocation: '%s', value: %p\n", symbol.name(), symbol.value());
             auto res = lookup_symbol(symbol);
             VERBOSE("was symbol found? %d, address: 0x%x\n", res.found, res.address);
+            ASSERT(res.found);
 
             if (!res.found) {
                 // TODO this is a hack
@@ -374,7 +376,7 @@ void DynamicLoader::do_relocations(size_t total_tls_size)
         if (m_dynamic_object->must_bind_now() || s_always_bind_now) {
             // Eagerly BIND_NOW the PLT entries, doing all the symbol looking goodness
             // The patch method returns the address for the LAZY fixup path, but we don't need it here
-            VERBOSE("patching plt reloaction: 0x%x", relocation.offset_in_section());
+            VERBOSE("patching plt reloaction: 0x%x\n", relocation.offset_in_section());
             (void)patch_plt_entry(relocation.offset_in_section());
         } else {
             // LAZY-ily bind the PLT slots by just adding the base address to the offsets stored there
@@ -425,9 +427,18 @@ Elf32_Addr DynamicLoader::patch_plt_entry(u32 relocation_offset)
     ASSERT(relocation.type() == R_386_JMP_SLOT);
 
     auto sym = relocation.symbol();
+    if (StringView { sym.name() } == "__cxa_demangle") {
+        // FIXME: Where is it defined?
+        dbgln("__cxa_demangle is currently not supported for shared objects");
+        return 0;
+    }
 
     u8* relocation_address = relocation.address().as_ptr();
     auto res = lookup_symbol(sym);
+    // some libgcc functions need these functions from libc, but libc needs things from libgcc so there is a circular dependency here
+    // but we do not actually use the problematic libgcc functions so we just ignore there relocations
+    if (!res.found && (StringView { sym.name() } == "memcpy" || StringView { sym.name() } == "malloc" || StringView { sym.name() } == "free" || StringView { sym.name() } == "abort" || StringView { sym.name() } == "memset" || StringView { sym.name() } == "strlen" || StringView { sym.name() } == "main" || StringView { sym.name() } == "_fini"))
+        return 0;
     ASSERT(res.found);
     u32 symbol_location = res.address;
 
