@@ -45,7 +45,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-// #define DYNAMIC_LOAD_VERBOSE
+#define DYNAMIC_LOAD_VERBOSE
 
 #ifdef DYNAMIC_LOAD_VERBOSE
 #    define VERBOSE(fmt, ...) dbgprintf(fmt, ##__VA_ARGS__)
@@ -72,30 +72,37 @@ static void init_libc()
     __malloc_init();
 }
 
-static void perform_self_relocations()
+static void perform_self_relocations(auxv_t* auxvp)
 {
     // We need to relocate ourselves.
     // (these relocations seem to be generated because of our vtables)
 
-    // TODO: Pass this address in the Auxiliary Vector
-    u32 base = 0x08000000;
-    Elf32_Ehdr* header = (Elf32_Ehdr*)(base);
-    Elf32_Phdr* pheader = (Elf32_Phdr*)(base + header->e_phoff);
+    FlatPtr base_address = 0;
+    bool found_base_address = false;
+    for (; auxvp->a_type != AT_NULL; ++auxvp) {
+        if (auxvp->a_type == AuxiliaryValue::BaseAddress) {
+            base_address = auxvp->a_un.a_val;
+            found_base_address = true;
+        }
+    }
+    ASSERT(found_base_address);
+    Elf32_Ehdr* header = (Elf32_Ehdr*)(base_address);
+    Elf32_Phdr* pheader = (Elf32_Phdr*)(base_address + header->e_phoff);
     u32 dynamic_section_addr = 0;
     for (size_t i = 0; i < (size_t)header->e_phnum; ++i, ++pheader) {
         if (pheader->p_type != PT_DYNAMIC)
             continue;
-        dynamic_section_addr = pheader->p_vaddr + base;
+        dynamic_section_addr = pheader->p_vaddr + base_address;
     }
     if (!dynamic_section_addr)
         exit(1);
 
-    auto dynamic_object = ELF::DynamicObject::construct((VirtualAddress(base)), (VirtualAddress(dynamic_section_addr)));
+    auto dynamic_object = ELF::DynamicObject::construct((VirtualAddress(base_address)), (VirtualAddress(dynamic_section_addr)));
 
-    dynamic_object->relocation_section().for_each_relocation([base](auto& reloc) {
+    dynamic_object->relocation_section().for_each_relocation([base_address](auto& reloc) {
         if (reloc.type() != R_386_RELATIVE)
             return IterationDecision::Continue;
-        *(u32*)reloc.address().as_ptr() += base;
+        *(u32*)reloc.address().as_ptr() += base_address;
         return IterationDecision::Continue;
     });
 }
@@ -110,7 +117,7 @@ static ELF::DynamicObject::SymbolLookupResult global_symbol_lookup(const char* s
             continue;
         return res.value();
     }
-    ASSERT_NOT_REACHED();
+    // ASSERT_NOT_REACHED();
     return {};
 }
 
@@ -143,11 +150,23 @@ static String get_library_name(const StringView& path)
     return LexicalPath(path).basename();
 }
 
+static Vector<String> get_dependencies(const String& name)
+{
+    auto lib = g_loaders.get(name).value();
+    Vector<String> dependencies;
+
+    lib->for_each_needed_library([&dependencies](auto needed_name) {
+        dependencies.append(needed_name);
+        return IterationDecision::Continue;
+    });
+    return dependencies;
+}
+
 static void map_dependencies(const String& name)
 {
     dbg() << "mapping dependencies for: " << name;
-    auto lib = g_loaders.get(name).value();
-    lib->for_each_needed_library([](auto needed_name) {
+
+    for (const auto& needed_name : get_dependencies(name)) {
         dbg() << "needed library: " << needed_name;
         String library_name = get_library_name(needed_name);
 
@@ -155,8 +174,7 @@ static void map_dependencies(const String& name)
             map_library(library_name);
             map_dependencies(library_name);
         }
-        return IterationDecision::Continue;
-    });
+    }
 }
 
 static void allocate_tls()
@@ -176,14 +194,13 @@ static void load_elf(const String& name)
 {
     dbg() << "load_elf: " << name;
     auto loader = g_loaders.get(name).value();
-    loader->for_each_needed_library([](auto needed_name) {
+    for (const auto& needed_name : get_dependencies(name)) {
         dbg() << "needed library: " << needed_name;
         String library_name = get_library_name(needed_name);
         if (!g_loaded_objects.contains(library_name)) {
             load_elf(library_name);
         }
-        return IterationDecision::Continue;
-    });
+    }
 
     auto dynamic_object = loader->load_from_image(RTLD_GLOBAL, g_total_tls_size);
     ASSERT(!dynamic_object.is_null());
@@ -233,14 +250,14 @@ using MainFunction = int (*)(int, char**, char**);
 
 void _start(int argc, char** argv, char** envp)
 {
-    perform_self_relocations();
-    init_libc();
-
     char** env;
     for (env = envp; *env; ++env) {
     }
 
     auxv_t* auxvp = (auxv_t*)++env;
+    perform_self_relocations(auxvp);
+    init_libc();
+
     FlatPtr entry = loader_main(auxvp);
     MainFunction main_function = (MainFunction)(entry);
     dbg() << "jumping to main program entry point: " << (void*)main_function;
