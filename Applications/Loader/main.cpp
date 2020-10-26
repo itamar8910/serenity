@@ -208,6 +208,12 @@ static void load_elf(const String& name)
     g_loaded_objects.set(name, dynamic_object.release_nonnull());
 }
 
+static void clear_temporary_objects_mappings()
+{
+
+    g_loaders.clear();
+}
+
 static FlatPtr loader_main(auxv_t* auxvp)
 {
     int main_program_fd = -1;
@@ -237,7 +243,7 @@ static FlatPtr loader_main(auxv_t* auxvp)
     dbg() << "entry point: " << (void*)entry_point;
 
     // This will unmap the temporary memory maps we had for loading the libraries
-    g_loaders.clear();
+    clear_temporary_objects_mappings();
 
     return entry_point;
 }
