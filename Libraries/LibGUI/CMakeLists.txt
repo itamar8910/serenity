@@ -96,3 +96,7 @@ set(GENERATED_SOURCES
 
 serenity_lib(LibGUI gui)
 target_link_libraries(LibGUI LibCore LibGfx LibIPC LibThread LibCpp)
+
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS_WITHOUT_STATIC} -fpic")
+serenity_shared_lib(LibGUIShared gui)
+target_link_libraries(LibGUIShared LibCoreShared LibGfxShared LibIPCShared LibThreadShared LibCppShared LibShell LibJS)
