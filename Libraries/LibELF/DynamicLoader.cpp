@@ -129,6 +129,7 @@ DynamicLoader::~DynamicLoader()
 {
     if (MAP_FAILED != m_file_mapping)
         munmap(m_file_mapping, m_file_size);
+    close(m_image_fd);
 }
 
 void* DynamicLoader::symbol_for_name(const char* name)
