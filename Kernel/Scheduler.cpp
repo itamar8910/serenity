@@ -489,8 +489,8 @@ bool Scheduler::pick_next()
     for_each_runnable([&](auto& thread) {
         if ((thread.affinity() & (1u << Processor::current().id())) == 0)
             return IterationDecision::Continue;
-        if (thread.state() == Thread::Running && &thread != current_thread)
-            return IterationDecision::Continue;
+        // if (thread.state() == Thread::Running && &thread != current_thread)
+        //     return IterationDecision::Continue;
         sorted_runnables.append(&thread);
         if (&thread == scheduler_data.m_pending_beneficiary) {
             thread_to_schedule = &thread;
