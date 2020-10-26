@@ -29,4 +29,7 @@ int _start(int argc, char** argv, char** env)
 }
 }
 
-void* __dso_handle = nullptr;
+//void* __dso_handle = nullptr;
+
+//void* __dso_handle __attribute__((visibility("hidden")));
+void* __dso_handle __attribute__((__weak__));

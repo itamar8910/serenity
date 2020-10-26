@@ -14,7 +14,7 @@ set(SOURCES
 serenity_lib(LibCrypto crypto)
 target_link_libraries(LibCrypto LibC)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS_WITHOUT_STATIC} -fpic")
-serenity_shared_lib(LibCryptoShared crypto)
-target_link_libraries(LibCryptoShared LibCShared)
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS_WITHOUT_STATIC} -fpic")
+#serenity_shared_lib(LibCryptoShared crypto)
+#target_link_libraries(LibCryptoShared LibCShared)
 

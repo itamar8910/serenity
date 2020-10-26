@@ -439,6 +439,9 @@ Elf32_Addr DynamicLoader::patch_plt_entry(u32 relocation_offset)
     // but we do not actually use the problematic libgcc functions so we just ignore there relocations
     if (!res.found && (StringView { sym.name() } == "memcpy" || StringView { sym.name() } == "malloc" || StringView { sym.name() } == "free" || StringView { sym.name() } == "abort" || StringView { sym.name() } == "memset" || StringView { sym.name() } == "strlen" || StringView { sym.name() } == "main" || StringView { sym.name() } == "_fini"))
         return 0;
+    if (!res.found) {
+        dbg() << "did not find symbol: " << sym.name();
+    }
     ASSERT(res.found);
     u32 symbol_location = res.address;
 
