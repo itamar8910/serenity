@@ -6,6 +6,6 @@ set(SOURCES
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS_WITHOUT_STATIC} -nostartfiles -lgcc_s -pie -fpic ")
 
 serenity_bin(DynamicObjectDemo)
-target_link_libraries(DynamicObjectDemo SampleLib LibCShared LibCoreShared LibGUIShared)
+target_link_libraries(DynamicObjectDemo SampleLib LibC LibCore LibGUI)
 
 add_subdirectory(SampleLib)

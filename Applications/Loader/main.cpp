@@ -264,7 +264,7 @@ void _start(int argc, char** argv, char** envp)
     dbg() << "jumping to main program entry point: " << (void*)main_function;
     int rc = main_function(argc, argv, envp);
     dbg() << "rc: " << rc;
-    sleep(100);
+    // sleep(100);
     _exit(rc);
 }
 }
