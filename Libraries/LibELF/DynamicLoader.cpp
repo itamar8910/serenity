@@ -177,7 +177,7 @@ bool DynamicLoader::load_stage_2(unsigned flags, size_t total_tls_size)
 #endif
 
     if (m_dynamic_object->has_text_relocations()) {
-        dbg() << "Someone linked non -fPIC code into " << m_filename << " :(";
+        // dbg() << "Someone linked non -fPIC code into " << m_filename << " :(";
         ASSERT(m_text_segment_load_address.get() != 0);
         if (0 > mprotect(m_text_segment_load_address.as_ptr(), m_text_segment_size, PROT_READ | PROT_WRITE)) {
             perror("mprotect .text: PROT_READ | PROT_WRITE"); // FIXME: dlerror?
@@ -202,9 +202,7 @@ bool DynamicLoader::load_stage_2(unsigned flags, size_t total_tls_size)
 
     call_object_init_functions();
 
-#ifdef DYNAMIC_LOAD_DEBUG
-    dbgprintf("Loaded %s\n", m_filename.characters());
-#endif
+    VERBOSE("Loaded %s\n", m_filename.characters());
     return true;
 }
 
@@ -332,28 +330,28 @@ void DynamicLoader::do_relocations(size_t total_tls_size)
         }
         case R_386_TLS_TPOFF32:
         case R_386_TLS_TPOFF: {
-            dbgprintf("Relocation type: R_386_TLS_TPOFF at offset %X\n", relocation.offset());
+            VERBOSE("Relocation type: R_386_TLS_TPOFF at offset %X\n", relocation.offset());
             auto symbol = relocation.symbol();
             // For some reason, LibC has a R_386_TLS_TPOFF that referes to the undefined symbol.. huh
             if (relocation.symbol_index() == 0)
                 break;
-            dbgprintf("Symbol index: %d\n", symbol.index());
-            dbgprintf("Symbol is_undefined?: %d\n", symbol.is_undefined());
-            dbgprintf("TLS relocation: '%s', value: %p\n", symbol.name(), symbol.value());
+            VERBOSE("Symbol index: %d\n", symbol.index());
+            VERBOSE("Symbol is_undefined?: %d\n", symbol.is_undefined());
+            VERBOSE("TLS relocation: '%s', value: %p\n", symbol.name(), symbol.value());
             auto res = lookup_symbol(symbol);
             if (!res.found)
                 break;
             ASSERT(res.found);
             u32 symbol_value = res.value;
-            dbgprintf("symbol value: %d\n", symbol_value);
+            VERBOSE("symbol value: %d\n", symbol_value);
             const auto dynamic_object_of_symbol = res.dynamic_object;
             ASSERT(dynamic_object_of_symbol);
             size_t offset_of_tls_end = dynamic_object_of_symbol->tls_offset().value() + dynamic_object_of_symbol->tls_size().value();
             // size_t offset_of_tls_end = tls_offset() + tls_size();
-            dbgprintf("patch ptr: 0x%x\n", patch_ptr);
-            dbgprintf("tls end offset: %d, total tls size: %d\n", offset_of_tls_end, total_tls_size);
+            VERBOSE("patch ptr: 0x%x\n", patch_ptr);
+            VERBOSE("tls end offset: %d, total tls size: %d\n", offset_of_tls_end, total_tls_size);
             *patch_ptr = (offset_of_tls_end - total_tls_size - symbol_value - sizeof(Elf32_Addr));
-            dbgprintf("*patch ptr: %d\n", (i32)*patch_ptr);
+            VERBOSE("*patch ptr: %d\n", (i32)*patch_ptr);
             break;
         }
         default:
@@ -391,9 +389,7 @@ void DynamicLoader::do_relocations(size_t total_tls_size)
         return IterationDecision::Continue;
     });
 
-#ifdef DYNAMIC_LOAD_DEBUG
-    dbgprintf("Done relocating!\n");
-#endif
+    VERBOSE("Done relocating!\n");
 }
 
 // Defined in <arch>/plt_trampoline.S
@@ -407,9 +403,7 @@ void DynamicLoader::setup_plt_trampoline()
     got_ptr[1] = (FlatPtr)this;
     got_ptr[2] = (FlatPtr)&_plt_trampoline;
 
-#ifdef DYNAMIC_LOAD_DEBUG
-    dbgprintf("Set GOT PLT entries at %p: [0] = %p [1] = %p, [2] = %p\n", got_ptr, (void*)got_ptr[0], (void*)got_ptr[1], (void*)got_ptr[2]);
-#endif
+    VERBOSE("Set GOT PLT entries at %p: [0] = %p [1] = %p, [2] = %p\n", got_ptr, (void*)got_ptr[0], (void*)got_ptr[1], (void*)got_ptr[2]);
 }
 
 // Called from our ASM routine _plt_trampoline.
@@ -455,15 +449,12 @@ Elf32_Addr DynamicLoader::patch_plt_entry(u32 relocation_offset)
 
 void DynamicLoader::call_object_init_functions()
 {
-    dbg() << "inside call_object_init_functions of " << m_filename;
     typedef void (*InitFunc)();
 
     if (m_dynamic_object->has_init_section()) {
         auto init_function = (InitFunc)(m_dynamic_object->init_section().address().as_ptr());
 
-        // #ifdef DYNAMIC_LOAD_DEBUG
-        dbgprintf("Calling DT_INIT at %p\n", init_function);
-        // #endif
+        VERBOSE("Calling DT_INIT at %p\n", init_function);
         (init_function)();
     }
 
@@ -477,9 +468,7 @@ void DynamicLoader::call_object_init_functions()
             // 0 definitely shows up. Apparently 0/-1 are valid? Confusing.
             if (!*init_begin || ((FlatPtr)*init_begin == (FlatPtr)-1))
                 continue;
-            // #ifdef DYNAMIC_LOAD_DEBUG
-            dbgprintf("Calling DT_INITARRAY entry at %p\n", *init_begin);
-            // #endif
+            VERBOSE("Calling DT_INITARRAY entry at %p\n", *init_begin);
             (*init_begin)();
             ++init_begin;
         }

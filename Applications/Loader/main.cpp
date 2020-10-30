@@ -164,10 +164,10 @@ static Vector<String> get_dependencies(const String& name)
 
 static void map_dependencies(const String& name)
 {
-    dbg() << "mapping dependencies for: " << name;
+    VERBOSE("mapping dependencies for: %s", name.characters());
 
     for (const auto& needed_name : get_dependencies(name)) {
-        dbg() << "needed library: " << needed_name;
+        VERBOSE("needed library: %s", needed_name.characters());
         String library_name = get_library_name(needed_name);
 
         if (!g_loaders.contains(library_name)) {
@@ -181,28 +181,30 @@ static void allocate_tls()
 {
     size_t total_tls_size = 0;
     for (const auto& data : g_loaders) {
+        dbg() << data.key << ": TLS size: " << data.value->tls_size();
         total_tls_size += data.value->tls_size();
     }
     if (total_tls_size) {
         void* tls_address = allocate_tls(total_tls_size);
-        dbg() << "from userspace, tls_address: " << tls_address;
+        (void)tls_address;
+        VERBOSE("from userspace, tls_address: %p", tls_address);
     }
     g_total_tls_size = total_tls_size;
 }
 
 static void load_elf(const String& name)
 {
-    dbg() << "load_elf: " << name;
+    VERBOSE("load_elf: %s", name.characters());
     auto loader = g_loaders.get(name).value();
     for (const auto& needed_name : get_dependencies(name)) {
-        dbg() << "needed library: " << needed_name;
+        VERBOSE("needed library: %s", needed_name.characters());
         String library_name = get_library_name(needed_name);
         if (!g_loaded_objects.contains(library_name)) {
             load_elf(library_name);
         }
     }
 
-    dbg() << "loading: " << name;
+    VERBOSE("loading: %s", name.characters());
     auto dynamic_object = loader->load_from_image(RTLD_GLOBAL, g_total_tls_size);
     ASSERT(!dynamic_object.is_null());
     g_loaded_objects.set(name, dynamic_object.release_nonnull());
@@ -229,9 +231,10 @@ static FlatPtr loader_main(auxv_t* auxvp)
     map_library(main_program_name, main_program_fd);
     map_dependencies(main_program_name);
 
-    dbg() << "loaded all dependencies";
+    VERBOSE("loaded all dependencies");
     for (auto& lib : g_loaders) {
-        dbg() << lib.key << "- tls size: " << lib.value->tls_size() << ", tls offset: " << lib.value->tls_offset();
+        (void)lib;
+        VERBOSE("%s - tls size: $u, tls offset: %u", lib.key.characters(), lib.value->tls_size(), lib.value->tls_offset());
     }
 
     allocate_tls();
@@ -240,7 +243,7 @@ static FlatPtr loader_main(auxv_t* auxvp)
 
     auto main_program_lib = g_loaders.get(main_program_name).value();
     FlatPtr entry_point = reinterpret_cast<FlatPtr>(main_program_lib->image().entry().as_ptr() + (FlatPtr)main_program_lib->text_segment_load_address().as_ptr());
-    dbg() << "entry point: " << (void*)entry_point;
+    VERBOSE("entry point: %p", entry_point);
 
     // This will unmap the temporary memory maps we had for loading the libraries
     clear_temporary_objects_mappings();
@@ -266,10 +269,14 @@ void _start(int argc, char** argv, char** envp)
     init_libc();
 
     FlatPtr entry = loader_main(auxvp);
+    for (auto& obj : g_loaded_objects) {
+        dbg() << obj.key << ":" << (void*)obj.value->base_address().as_ptr();
+    }
+
     MainFunction main_function = (MainFunction)(entry);
-    dbg() << "jumping to main program entry point: " << (void*)main_function;
+    VERBOSE("jumping to main program entry point: %p", main_function);
     int rc = main_function(argc, argv, envp);
-    dbg() << "rc: " << rc;
+    VERBOSE("rc: %d", rc);
     // sleep(100);
     _exit(rc);
 }

@@ -32,6 +32,16 @@
 #include <stdio.h>
 #include <string.h>
 
+// #define DYNAMIC_OBJECT_VERBOSE
+
+#ifdef DYNAMIC_OBJECT_VERBOSE
+#    define VERBOSE(fmt, ...) dbgprintf(fmt, ##__VA_ARGS__)
+#else
+#    define VERBOSE(fmt, ...) \
+        do {                  \
+        } while (0)
+#endif
+
 namespace ELF {
 
 static const char* name_for_dtag(Elf32_Sword d_tag);
@@ -63,8 +73,8 @@ void DynamicObject::dump() const
     if (m_has_soname)
         builder.appendf("DT_SONAME: %s\n", soname()); // FIXME: Valdidate that this string is null terminated?
 
-    dbgprintf("Dynamic section at address %p contains %zu entries:\n", m_dynamic_address.as_ptr(), num_dynamic_sections);
-    dbgprintf("%s", builder.to_string().characters());
+    VERBOSE("Dynamic section at address %p contains %zu entries:\n", m_dynamic_address.as_ptr(), num_dynamic_sections);
+    VERBOSE("%s", builder.to_string().characters());
 }
 
 void DynamicObject::parse()
