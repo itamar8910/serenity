@@ -17,14 +17,10 @@ extern bool __environ_is_malloced;
 int _start(int argc, char** argv, char** env);
 int _start(int argc, char** argv, char** env)
 {
-    // asm("int3");
-    environ = env;
-    __environ_is_malloced = false;
+    _init();
 
-    __libc_init();
-    // _init();
-
-    int status = main(argc, argv, environ);
+    int status = main(argc, argv, env);
+    // int status = main(argc, argv, environ);
     return status;
 }
 }

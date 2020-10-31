@@ -63,6 +63,7 @@ static HashMap<String, NonnullRefPtr<ELF::DynamicObject>> g_loaded_objects;
 
 static size_t g_current_tls_offset = 0;
 static size_t g_total_tls_size = 0;
+static char** g_envp = nullptr;
 
 static void init_libc()
 {
@@ -192,6 +193,26 @@ static void allocate_tls()
     g_total_tls_size = total_tls_size;
 }
 
+static void initialize_libc()
+{
+    // Traditionally, `_start` of the main program initializes libc.
+    // However, since some libs use malloc() and getenv() in global constructors,
+    // we have to initialize libc just after it is loaded.
+    // Also, we can't just mark `__libc_init` with "__attribute__((constructor))"
+    // because it uses getenv() internally, so `environ` has to be initialized before we call `__libc_init`.
+    auto res = global_symbol_lookup("environ");
+    *((char***)res.address) = g_envp;
+    ASSERT(res.found);
+    res = global_symbol_lookup("__environ_is_malloced");
+    ASSERT(res.found);
+    *((bool*)res.address) = false;
+
+    res = global_symbol_lookup("__libc_init");
+    ASSERT(res.found);
+    typedef void libc_init_func(void);
+    ((libc_init_func*)res.address)();
+}
+
 static void load_elf(const String& name)
 {
     VERBOSE("load_elf: %s", name.characters());
@@ -208,6 +229,10 @@ static void load_elf(const String& name)
     auto dynamic_object = loader->load_from_image(RTLD_GLOBAL, g_total_tls_size);
     ASSERT(!dynamic_object.is_null());
     g_loaded_objects.set(name, dynamic_object.release_nonnull());
+
+    if (name == "libc.so") {
+        initialize_libc();
+    }
 }
 
 static void clear_temporary_objects_mappings()
@@ -260,6 +285,7 @@ using MainFunction = int (*)(int, char**, char**);
 
 void _start(int argc, char** argv, char** envp)
 {
+    g_envp = envp;
     char** env;
     for (env = envp; *env; ++env) {
     }
