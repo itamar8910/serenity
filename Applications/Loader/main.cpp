@@ -182,7 +182,7 @@ static void allocate_tls()
 {
     size_t total_tls_size = 0;
     for (const auto& data : g_loaders) {
-        dbg() << data.key << ": TLS size: " << data.value->tls_size();
+        VERBOSE("%s: TLS Size: %u\n", data.key.characters(), data.value->tls_size());
         total_tls_size += data.value->tls_size();
     }
     if (total_tls_size) {
@@ -295,15 +295,16 @@ void _start(int argc, char** argv, char** envp)
     init_libc();
 
     FlatPtr entry = loader_main(auxvp);
+    VERBOSE("Loaded libs:\n");
     for (auto& obj : g_loaded_objects) {
-        dbg() << obj.key << ":" << (void*)obj.value->base_address().as_ptr();
+        (void)obj;
+        VERBOSE("%s: %p\n", obj.key.characters(), obj.value->base_address().as_ptr());
     }
 
     MainFunction main_function = (MainFunction)(entry);
     VERBOSE("jumping to main program entry point: %p", main_function);
     int rc = main_function(argc, argv, envp);
     VERBOSE("rc: %d", rc);
-    // sleep(100);
     _exit(rc);
 }
 }
