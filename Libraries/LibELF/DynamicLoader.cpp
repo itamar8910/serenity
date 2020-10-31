@@ -236,7 +236,13 @@ void DynamicLoader::load_program_headers()
 
     // Process regions in order: .text, .data, .tls
     auto* region = text_region_ptr;
-    void* text_segment_begin = mmap_with_name(nullptr, region->required_load_size(), region->mmap_prot(), MAP_PRIVATE, m_image_fd, region->offset(), String::format(".text: %s", m_filename.characters()).characters());
+    void* text_segment_begin = mmap_with_name(nullptr,
+        region->required_load_size(),
+        region->mmap_prot(),
+        MAP_PRIVATE,
+        m_image_fd,
+        region->offset(),
+        String::format("%s: .text", m_filename.characters()).characters());
     if (MAP_FAILED == text_segment_begin) {
         ASSERT_NOT_REACHED();
     }
@@ -246,7 +252,13 @@ void DynamicLoader::load_program_headers()
     m_dynamic_section_address = dynamic_region_desired_vaddr.offset(m_text_segment_load_address.get());
 
     region = data_region_ptr;
-    void* data_segment_begin = mmap_with_name((u8*)text_segment_begin + m_text_segment_size, region->required_load_size(), region->mmap_prot(), MAP_ANONYMOUS | MAP_PRIVATE, 0, 0, String::format(".data: %s", m_filename.characters()).characters());
+    void* data_segment_begin = mmap_with_name((u8*)text_segment_begin + m_text_segment_size,
+        region->required_load_size(),
+        region->mmap_prot(),
+        MAP_ANONYMOUS | MAP_PRIVATE,
+        0,
+        0,
+        String::format("%s: .data", m_filename.characters()).characters());
     if (MAP_FAILED == data_segment_begin) {
         ASSERT_NOT_REACHED();
     }
