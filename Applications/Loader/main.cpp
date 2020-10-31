@@ -130,7 +130,7 @@ static void map_library(const String& name, int fd)
 
     auto loader = ELF::DynamicLoader::construct(name.characters(), fd, lib_stat.st_size);
     loader->set_tls_offset(g_current_tls_offset);
-    loader->m_global_symbol_lookup_func = global_symbol_lookup;
+    loader->set_global_symbol_lookup_function(global_symbol_lookup);
 
     g_loaders.set(name, loader);
 
@@ -226,7 +226,7 @@ static void load_elf(const String& name)
     }
 
     VERBOSE("loading: %s", name.characters());
-    auto dynamic_object = loader->load_from_image(RTLD_GLOBAL, g_total_tls_size);
+    auto dynamic_object = loader->load_from_image(RTLD_GLOBAL | RTLD_LAZY, g_total_tls_size);
     ASSERT(!dynamic_object.is_null());
     g_loaded_objects.set(name, dynamic_object.release_nonnull());
 

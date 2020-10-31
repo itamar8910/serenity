@@ -59,7 +59,7 @@ static void* mmap_with_name(void* addr, size_t length, int prot, int flags, int 
 
 namespace ELF {
 
-static bool s_always_bind_now = true;
+static bool s_always_bind_now = false;
 
 NonnullRefPtr<DynamicLoader> DynamicLoader::construct(const char* filename, int fd, size_t size)
 {
@@ -160,6 +160,8 @@ RefPtr<DynamicObject> DynamicLoader::load_from_image(unsigned flags, size_t tota
     m_dynamic_object = DynamicObject::construct(m_text_segment_load_address, m_dynamic_section_address);
     m_dynamic_object->set_tls_offset(m_tls_offset);
     m_dynamic_object->set_tls_size(m_tls_size);
+    ASSERT(m_global_symbol_lookup_func);
+    m_dynamic_object->m_global_symbol_lookup_func = m_global_symbol_lookup_func;
 
     auto rc = load_stage_2(flags, total_tls_size);
     if (!rc)
@@ -170,7 +172,6 @@ RefPtr<DynamicObject> DynamicLoader::load_from_image(unsigned flags, size_t tota
 bool DynamicLoader::load_stage_2(unsigned flags, size_t total_tls_size)
 {
     ASSERT(flags & RTLD_GLOBAL);
-    ASSERT(!(flags & RTLD_LAZY));
 
 #ifdef DYNAMIC_LOAD_DEBUG
     m_dynamic_object->dump();
@@ -188,7 +189,6 @@ bool DynamicLoader::load_stage_2(unsigned flags, size_t total_tls_size)
     do_relocations(total_tls_size);
 
     if (flags & RTLD_LAZY) {
-        ASSERT_NOT_REACHED(); // TODO: Support lazy binding
         setup_plt_trampoline();
     }
 
@@ -376,7 +376,7 @@ void DynamicLoader::do_relocations(size_t total_tls_size)
             // Eagerly BIND_NOW the PLT entries, doing all the symbol looking goodness
             // The patch method returns the address for the LAZY fixup path, but we don't need it here
             VERBOSE("patching plt reloaction: 0x%x\n", relocation.offset_in_section());
-            (void)patch_plt_entry(relocation.offset_in_section());
+            (void)m_dynamic_object->patch_plt_entry(relocation.offset_in_section());
         } else {
             // LAZY-ily bind the PLT slots by just adding the base address to the offsets stored there
             // This avoids doing symbol lookup, which might be expensive
@@ -397,10 +397,11 @@ extern "C" void _plt_trampoline(void) __attribute__((visibility("hidden")));
 
 void DynamicLoader::setup_plt_trampoline()
 {
+    ASSERT(m_dynamic_object);
     VirtualAddress got_address = m_dynamic_object->plt_got_base_address();
 
     FlatPtr* got_ptr = (FlatPtr*)got_address.as_ptr();
-    got_ptr[1] = (FlatPtr)this;
+    got_ptr[1] = (FlatPtr)m_dynamic_object.ptr();
     got_ptr[2] = (FlatPtr)&_plt_trampoline;
 
     VERBOSE("Set GOT PLT entries at %p: [0] = %p [1] = %p, [2] = %p\n", got_ptr, (void*)got_ptr[0], (void*)got_ptr[1], (void*)got_ptr[2]);
@@ -408,43 +409,10 @@ void DynamicLoader::setup_plt_trampoline()
 
 // Called from our ASM routine _plt_trampoline.
 // Tell the compiler that it might be called from other places:
-extern "C" Elf32_Addr _fixup_plt_entry(DynamicLoader* object, u32 relocation_offset);
-extern "C" Elf32_Addr _fixup_plt_entry(DynamicLoader* object, u32 relocation_offset)
+extern "C" Elf32_Addr _fixup_plt_entry(DynamicObject* object, u32 relocation_offset);
+extern "C" Elf32_Addr _fixup_plt_entry(DynamicObject* object, u32 relocation_offset)
 {
     return object->patch_plt_entry(relocation_offset);
-}
-
-// offset is in PLT relocation table
-Elf32_Addr DynamicLoader::patch_plt_entry(u32 relocation_offset)
-{
-    auto relocation = m_dynamic_object->plt_relocation_section().relocation_at_offset(relocation_offset);
-
-    ASSERT(relocation.type() == R_386_JMP_SLOT);
-
-    auto sym = relocation.symbol();
-    if (StringView { sym.name() } == "__cxa_demangle") {
-        // FIXME: Where is it defined?
-        dbgln("__cxa_demangle is currently not supported for shared objects");
-        return 0;
-    }
-
-    u8* relocation_address = relocation.address().as_ptr();
-    auto res = lookup_symbol(sym);
-    // some libgcc functions need these functions from libc, but libc needs things from libgcc so there is a circular dependency here
-    // but we do not actually use the problematic libgcc functions so we just ignore there relocations
-    if (!res.found && (StringView { sym.name() } == "memcpy" || StringView { sym.name() } == "malloc" || StringView { sym.name() } == "free" || StringView { sym.name() } == "abort" || StringView { sym.name() } == "memset" || StringView { sym.name() } == "strlen" || StringView { sym.name() } == "main" || StringView { sym.name() } == "_fini"))
-        return 0;
-    if (!res.found) {
-        dbg() << "did not find symbol: " << sym.name();
-    }
-    ASSERT(res.found);
-    u32 symbol_location = res.address;
-
-    VERBOSE("DynamicLoader: Jump slot relocation: putting %s (%p) into PLT at %p\n", sym.name(), symbol_location, relocation_address);
-
-    *(u32*)relocation_address = symbol_location;
-
-    return symbol_location;
 }
 
 void DynamicLoader::call_object_init_functions()
@@ -486,22 +454,7 @@ u32 DynamicLoader::ProgramHeaderRegion::mmap_prot() const
 
 DynamicObject::SymbolLookupResult DynamicLoader::lookup_symbol(const ELF::DynamicObject::Symbol& symbol) const
 {
-    VERBOSE("looking up symbol: %s\n", symbol.name());
-    if (!symbol.is_undefined()) {
-        VERBOSE("symbol is defiend in its object\n");
-        return { true, symbol.value(), (FlatPtr)symbol.address().as_ptr(), &symbol.object() };
-    }
-    ASSERT(m_global_symbol_lookup_func);
-    return m_global_symbol_lookup_func(symbol.name());
+    return m_dynamic_object->lookup_symbol(symbol);
 }
-
-// Optional<DynamicLoader::SymbolLookupResult> DynamicLoader::lookup_symbol(const char* name) const
-// {
-//     ASSERT(m_dynamic_object);
-//     auto res = m_dynamic_object->hash_section().lookup_symbol(name);
-//     if (res.is_undefined())
-//         return {};
-//     return SymbolLookupResult { true, res.value(), (FlatPtr)res.address().as_ptr(), m_dynamic_object.ptr() };
-// }
 
 } // end namespace ELF

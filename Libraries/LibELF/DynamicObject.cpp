@@ -412,4 +412,50 @@ NonnullRefPtr<DynamicObject> DynamicObject::construct(VirtualAddress base_addres
     return adopt(*new DynamicObject(base_address, dynamic_section_address));
 }
 
+// offset is in PLT relocation table
+Elf32_Addr DynamicObject::patch_plt_entry(u32 relocation_offset)
+{
+    // dbg() << "patch plt entry: " << (void*)relocation_offset;
+    auto relocation = plt_relocation_section().relocation_at_offset(relocation_offset);
+
+    ASSERT(relocation.type() == R_386_JMP_SLOT);
+
+    auto sym = relocation.symbol();
+    // dbg() << "symbol:" << sym.name();
+    if (StringView { sym.name() } == "__cxa_demangle") {
+        // FIXME: Where is it defined?
+        dbgln("__cxa_demangle is currently not supported for shared objects");
+        return 0;
+    }
+
+    u8* relocation_address = relocation.address().as_ptr();
+    auto res = lookup_symbol(sym);
+    // some libgcc functions need these functions from libc, but libc needs things from libgcc so there is a circular dependency here
+    // but we do not actually use the problematic libgcc functions so we just ignore there relocations
+    if (!res.found && (StringView { sym.name() } == "memcpy" || StringView { sym.name() } == "malloc" || StringView { sym.name() } == "free" || StringView { sym.name() } == "abort" || StringView { sym.name() } == "memset" || StringView { sym.name() } == "strlen" || StringView { sym.name() } == "main" || StringView { sym.name() } == "_fini"))
+        return 0;
+    if (!res.found) {
+        dbg() << "did not find symbol: " << sym.name();
+    }
+    ASSERT(res.found);
+    u32 symbol_location = res.address;
+
+    VERBOSE("DynamicLoader: Jump slot relocation: putting %s (%p) into PLT at %p\n", sym.name(), symbol_location, relocation_address);
+
+    *(u32*)relocation_address = symbol_location;
+
+    return symbol_location;
+}
+
+DynamicObject::SymbolLookupResult DynamicObject::lookup_symbol(const ELF::DynamicObject::Symbol& symbol) const
+{
+    VERBOSE("looking up symbol: %s\n", symbol.name());
+    if (!symbol.is_undefined()) {
+        VERBOSE("symbol is defiend in its object\n");
+        return { true, symbol.value(), (FlatPtr)symbol.address().as_ptr(), &symbol.object() };
+    }
+    ASSERT(m_global_symbol_lookup_func);
+    return m_global_symbol_lookup_func(symbol.name());
+}
+
 } // end namespace ELF
