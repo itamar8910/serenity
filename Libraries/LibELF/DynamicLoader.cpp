@@ -308,7 +308,8 @@ void DynamicLoader::do_relocations(size_t total_tls_size)
             auto symbol = relocation.symbol();
             if (!strcmp(symbol.name(), "__deregister_frame_info") || !strcmp(symbol.name(), "_ITM_registerTMCloneTable")
                 || !strcmp(symbol.name(), "_ITM_deregisterTMCloneTable") || !strcmp(symbol.name(), "__register_frame_info")
-                || !strcmp(symbol.name(), "__cxa_finalize")) {
+                || !strcmp(symbol.name(), "__cxa_finalize") // __cxa_finalize will be called from libc's exit()
+            ) {
                 // We do not support these
                 break;
             }

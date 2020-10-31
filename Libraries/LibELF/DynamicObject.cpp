@@ -421,19 +421,20 @@ Elf32_Addr DynamicObject::patch_plt_entry(u32 relocation_offset)
     ASSERT(relocation.type() == R_386_JMP_SLOT);
 
     auto sym = relocation.symbol();
-    // dbg() << "symbol:" << sym.name();
     if (StringView { sym.name() } == "__cxa_demangle") {
-        // FIXME: Where is it defined?
         dbgln("__cxa_demangle is currently not supported for shared objects");
-        return 0;
+        // FIXME: Where is it defined?
+        ASSERT_NOT_REACHED();
     }
 
     u8* relocation_address = relocation.address().as_ptr();
     auto res = lookup_symbol(sym);
-    // some libgcc functions need these functions from libc, but libc needs things from libgcc so there is a circular dependency here
-    // but we do not actually use the problematic libgcc functions so we just ignore there relocations
-    if (!res.found && (StringView { sym.name() } == "memcpy" || StringView { sym.name() } == "malloc" || StringView { sym.name() } == "free" || StringView { sym.name() } == "abort" || StringView { sym.name() } == "memset" || StringView { sym.name() } == "strlen" || StringView { sym.name() } == "main" || StringView { sym.name() } == "_fini"))
-        return 0;
+
+    // some libgcc functions need these functions from libc, but libc needs things from libgcc so there is a circular dependency here.
+    // However, we do not actually use these problematic libgcc functions so we can just ignore there relocations and assert that we do not try & fail to find the following functions.
+    if (!res.found && (StringView { sym.name() } == "memcpy" || StringView { sym.name() } == "malloc" || StringView { sym.name() } == "free" || StringView { sym.name() } == "abort" || StringView { sym.name() } == "memset" || StringView { sym.name() } == "strlen" || StringView { sym.name() } == "main" || StringView { sym.name() } == "_fini")) {
+        ASSERT_NOT_REACHED();
+    }
     if (!res.found) {
         dbg() << "did not find symbol: " << sym.name();
     }
