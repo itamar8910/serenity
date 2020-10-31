@@ -32,7 +32,3 @@ set(SOURCES
 
 serenity_lib(LibGfx gfx)
 target_link_libraries(LibGfx LibM LibCore LibIPC)
-
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS_WITHOUT_STATIC} -fpic")
-serenity_shared_lib(LibGfxShared gfx)
-target_link_libraries(LibGfxShared LibMShared LibCoreShared LibIPCShared)
