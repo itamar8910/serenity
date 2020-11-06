@@ -117,6 +117,7 @@ class Process
 
     friend class InlineLinkedListNode<Process>;
     friend class Thread;
+    friend class CoreDump;
 
 public:
     inline static Process* current()
@@ -136,6 +137,8 @@ public:
 
     bool is_profiling() const { return m_profiling; }
     void set_profiling(bool profiling) { m_profiling = profiling; }
+    bool should_core_dump() const { return m_should_dump_core; }
+    void set_dump_core(bool dump_core) { m_should_dump_core = dump_core; }
 
     KBuffer backtrace() const;
 
@@ -573,6 +576,7 @@ private:
     const bool m_is_kernel_process;
     bool m_dead { false };
     bool m_profiling { false };
+    bool m_should_dump_core { false };
 
     RefPtr<Custody> m_executable;
     RefPtr<Custody> m_cwd;

@@ -614,6 +614,7 @@ ShouldUnblockThread Thread::dispatch_signal(u8 signal)
             set_state(Stopped);
             return ShouldUnblockThread::No;
         case DefaultSignalAction::DumpCore:
+            process().set_dump_core(true);
             process().for_each_thread([](auto& thread) {
                 thread.set_dump_backtrace_on_finalization();
                 return IterationDecision::Continue;
