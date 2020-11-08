@@ -1,5 +1,6 @@
 set(SOURCES
     main.cpp
+    CoreDumpReader.cpp
 )
 
 serenity_bin(CrashDaemon)

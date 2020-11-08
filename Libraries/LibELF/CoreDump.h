@@ -49,10 +49,10 @@ struct [[gnu::packed]] ThreadInfo
 
 struct [[gnu::packed]] MemoryRegionInfo
 {
-    uint32_t region_start {};
+    uint32_t region_start;
     uint32_t region_end;
     uint16_t program_header_index;
-    char file_name[];
+    char region_name[];
 };
 
 }

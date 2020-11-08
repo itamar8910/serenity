@@ -24,12 +24,14 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "CoreDumpReader.h"
 #include <AK/Assertions.h>
 #include <AK/LogStream.h>
 #include <AK/ScopeGuard.h>
 #include <LibCore/DirectoryWatcher.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <time.h>
 #include <unistd.h>
 
 int main()
@@ -41,7 +43,16 @@ int main()
         ASSERT(event.has_value());
         if (event.value().type != Core::DirectoryWatcher::Event::Type::ChildAdded)
             continue;
-        dbgln("New coredump: {}", event.value().child_path.string());
+        auto coredump_path = event.value().child_path;
+        dbgln("New coredump: {}", coredump_path.string());
+        // nanosleep(100 * 1000000);
+        // TODO: make file non readable at the beginning, and wait for it here to become readable
+        sleep(1);
         // TODO: Do something with this coredump!
+        auto reader = CoreDumpReader::create(coredump_path);
+        reader->for_each_memory_region_info([](const ELF::Core::MemoryRegionInfo* region_info) {
+            dbgln("{:p}: {}", (const char*)region_info->region_name, (const char*)region_info->region_name);
+            return IterationDecision::Continue;
+        });
     }
 }
