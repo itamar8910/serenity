@@ -26,6 +26,25 @@
 
 #include "Backtrace.h"
 
+#include <AK/MappedFile.h>
+#include <LibELF/Loader.h>
+
+static String symbolicate(FlatPtr eip, const ELF::Core::MemoryRegionInfo* region)
+{
+    String file_name = (const char*)region->region_name;
+    if (!file_name.index_of(":").has_value())
+        return "???;";
+    file_name = file_name.substring(0, file_name.index_of(":").value());
+    String path = String::format("/usr/lib/%s", file_name.characters());
+    dbgln("trying to open: {}", path);
+    auto mapped_file = make<MappedFile>(path);
+    if (!mapped_file->is_valid())
+        return "???";
+
+    auto loader = ELF::Loader::create((const u8*)mapped_file->data(), mapped_file->size());
+    return loader->symbolicate(eip - region->region_start);
+}
+
 Backtrace::Backtrace(const LexicalPath& coredump_path)
     : m_coredump(CoreDumpReader::create(coredump_path))
 {
@@ -37,9 +56,12 @@ Backtrace::Backtrace(const LexicalPath& coredump_path)
         uint32_t* eip = (uint32_t*)thread_info->regs.eip;
         while (ebp && eip) {
             auto* region = region_containing((FlatPtr)eip);
-            if (region)
-                dbgln("{:p}: {}", eip, (const char*)region->region_name);
-            else
+            if (region) {
+                String func_name = "???";
+                if (region->region_name[0])
+                    func_name = symbolicate((FlatPtr)eip, region);
+                dbgln("{:p}: {} {}", eip, (const char*)region->region_name, func_name);
+            } else
                 dbgln("{:p}: ???", eip);
 
             auto next_eip = peek_memory((FlatPtr)(ebp + 1));
