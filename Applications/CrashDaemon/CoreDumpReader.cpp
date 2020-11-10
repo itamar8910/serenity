@@ -60,12 +60,12 @@ CoreDumpReader::NotesEntryIterator::NotesEntryIterator(const u8* notes_data)
 {
 }
 
-ELF::Core::NotesEntry::Type CoreDumpReader::NotesEntryIterator::type() const
+ELF::Core::NotesEntryHeader::Type CoreDumpReader::NotesEntryIterator::type() const
 {
-    ASSERT(m_current->type == ELF::Core::NotesEntry::Type::MemoryRegionInfo
-        || m_current->type == ELF::Core::NotesEntry::Type::ThreadInfo
-        || m_current->type == ELF::Core::NotesEntry::Type::Null);
-    return m_current->type;
+    ASSERT(m_current->header.type == ELF::Core::NotesEntryHeader::Type::MemoryRegionInfo
+        || m_current->header.type == ELF::Core::NotesEntryHeader::Type::ThreadInfo
+        || m_current->header.type == ELF::Core::NotesEntryHeader::Type::Null);
+    return m_current->header.type;
 }
 
 const ELF::Core::NotesEntry* CoreDumpReader::NotesEntryIterator::current() const
@@ -76,18 +76,19 @@ const ELF::Core::NotesEntry* CoreDumpReader::NotesEntryIterator::current() const
 void CoreDumpReader::NotesEntryIterator::next()
 {
     ASSERT(!at_end());
-    if (type() == ELF::Core::NotesEntry::Type::ThreadInfo) {
-        m_current = (const ELF::Core::NotesEntry*)(((const u8*)m_current) + sizeof(ELF::Core::NotesEntry) + sizeof(ELF::Core::ThreadInfo));
+    if (type() == ELF::Core::NotesEntryHeader::Type::ThreadInfo) {
+        const ELF::Core::ThreadInfo* current = (const ELF::Core::ThreadInfo*)m_current;
+        m_current = (const ELF::Core::NotesEntry*)(current + 1);
         return;
     }
-    if (type() == ELF::Core::NotesEntry::Type::MemoryRegionInfo) {
-        const char* region_file_name_start = (const char*)(m_current) + sizeof(ELF::Core::NotesEntry) + sizeof(ELF::Core::MemoryRegionInfo);
-        m_current = (const ELF::Core::NotesEntry*)(region_file_name_start + strlen(region_file_name_start) + 1);
+    if (type() == ELF::Core::NotesEntryHeader::Type::MemoryRegionInfo) {
+        const ELF::Core::MemoryRegionInfo* current = (const ELF::Core::MemoryRegionInfo*)m_current;
+        m_current = (const ELF::Core::NotesEntry*)(current->region_name + strlen(current->region_name) + 1);
         return;
     }
 }
 
 bool CoreDumpReader::NotesEntryIterator::at_end() const
 {
-    return type() == ELF::Core::NotesEntry::Type::Null;
+    return type() == ELF::Core::NotesEntryHeader::Type::Null;
 }

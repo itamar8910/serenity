@@ -50,7 +50,7 @@ private:
     public:
         NotesEntryIterator(const u8* notes_data);
 
-        ELF::Core::NotesEntry::Type type() const;
+        ELF::Core::NotesEntryHeader::Type type() const;
         const ELF::Core::NotesEntry* current() const;
 
         void next();
@@ -70,9 +70,9 @@ template<typename Func>
 void CoreDumpReader::for_each_memory_region_info(Func func)
 {
     for (NotesEntryIterator it((const u8*)m_coredump_image.program_header(m_notes_segment_index).raw_data()); !it.at_end(); it.next()) {
-        if (it.type() != ELF::Core::NotesEntry::Type::MemoryRegionInfo)
+        if (it.type() != ELF::Core::NotesEntryHeader::Type::MemoryRegionInfo)
             continue;
-        auto* region = (const ELF::Core::MemoryRegionInfo*)(it.current()->data);
+        auto* region = (const ELF::Core::MemoryRegionInfo*)(it.current());
         IterationDecision decision = func(region);
         if (decision == IterationDecision::Break)
             return;
