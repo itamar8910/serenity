@@ -1,5 +1,4 @@
 /*
- * Copyright (c) 2019-2020, Jesse Buhagiar <jooster669@gmail.com>
  * Copyright (c) 2020, Itamar S. <itamar8910@gmail.com>
  * All rights reserved.
  *
@@ -27,40 +26,23 @@
 
 #pragma once
 
-#include <AK/NonnullRefPtr.h>
+#include "CoreDumpReader.h"
+#include <AK/LexicalPath.h>
+#include <AK/Noncopyable.h>
+#include <AK/Optional.h>
 #include <AK/OwnPtr.h>
-#include <Kernel/Forward.h>
-#include <LibELF/exec_elf.h>
+#include <LibELF/CoreDump.h>
 
-namespace Kernel {
+class Backtrace {
+    AK_MAKE_NONCOPYABLE(Backtrace);
 
-class Process;
-
-class CoreDump {
 public:
-    static OwnPtr<CoreDump> create(Process&);
-
-    ~CoreDump();
-    void write();
-
-    // Has to be public for OwnPtr::make
-    CoreDump(Process&, NonnullRefPtr<FileDescription>&&);
+    Backtrace(const LexicalPath& coredump_path);
+    ~Backtrace();
 
 private:
-    static RefPtr<FileDescription> create_target_file(const Process&);
+    Optional<uint32_t> peek_memory(FlatPtr address) const;
+    const ELF::Core::MemoryRegionInfo* region_containing(FlatPtr address) const;
 
-    void write_elf_header();
-    void write_program_headers(size_t notes_size);
-    void write_regions();
-    void write_notes_segment(ByteBuffer&);
-
-    ByteBuffer create_notes_segment_data() const;
-    ByteBuffer create_notes_threads_data() const;
-    ByteBuffer create_notes_regions_data() const;
-
-    Process& m_process;
-    NonnullRefPtr<FileDescription> m_fd;
-    size_t m_num_program_headers;
+    OwnPtr<CoreDumpReader> m_coredump;
 };
-
-}

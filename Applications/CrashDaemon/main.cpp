@@ -24,6 +24,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "Backtrace.h"
 #include "CoreDumpReader.h"
 #include <AK/Assertions.h>
 #include <AK/LogStream.h>
@@ -49,10 +50,18 @@ int main()
         // TODO: make file non readable at the beginning, and wait for it here to become readable
         sleep(1);
         // TODO: Do something with this coredump!
+
         auto reader = CoreDumpReader::create(coredump_path);
         reader->for_each_memory_region_info([](const ELF::Core::MemoryRegionInfo* region_info) {
             dbgln("{:p}: {}", (const char*)region_info->region_name, (const char*)region_info->region_name);
             return IterationDecision::Continue;
         });
+
+        reader->for_each_thread_info([](const ELF::Core::ThreadInfo* thread_info) {
+            dbgln("tid: {}, eip: {:p}", thread_info->tid, thread_info->regs.eip);
+            return IterationDecision::Continue;
+        });
+
+        Backtrace backtrace(coredump_path);
     }
 }

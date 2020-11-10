@@ -43,7 +43,12 @@ public:
     CoreDumpReader(OwnPtr<MappedFile>&&);
 
     template<typename Func>
-    void for_each_memory_region_info(Func func);
+    void for_each_memory_region_info(Func func) const;
+
+    template<typename Func>
+    void for_each_thread_info(Func func) const;
+
+    const ELF::Image& image() const { return m_coredump_image; }
 
 private:
     class NotesEntryIterator {
@@ -67,12 +72,25 @@ private:
 };
 
 template<typename Func>
-void CoreDumpReader::for_each_memory_region_info(Func func)
+void CoreDumpReader::for_each_memory_region_info(Func func) const
 {
     for (NotesEntryIterator it((const u8*)m_coredump_image.program_header(m_notes_segment_index).raw_data()); !it.at_end(); it.next()) {
         if (it.type() != ELF::Core::NotesEntryHeader::Type::MemoryRegionInfo)
             continue;
         auto* region = (const ELF::Core::MemoryRegionInfo*)(it.current());
+        IterationDecision decision = func(region);
+        if (decision == IterationDecision::Break)
+            return;
+    }
+}
+
+template<typename Func>
+void CoreDumpReader::for_each_thread_info(Func func) const
+{
+    for (NotesEntryIterator it((const u8*)m_coredump_image.program_header(m_notes_segment_index).raw_data()); !it.at_end(); it.next()) {
+        if (it.type() != ELF::Core::NotesEntryHeader::Type::ThreadInfo)
+            continue;
+        auto* region = (const ELF::Core::ThreadInfo*)(it.current());
         IterationDecision decision = func(region);
         if (decision == IterationDecision::Break)
             return;

@@ -225,7 +225,7 @@ ByteBuffer CoreDump::create_notes_regions_data() const
         auto& region = m_process.m_regions[region_index];
         info.region_start = reinterpret_cast<uint32_t>(region.vaddr().as_ptr());
         info.region_end = reinterpret_cast<uint32_t>(region.vaddr().as_ptr() + region.size());
-        info.region_start = info.program_header_index;
+        info.program_header_index = region_index;
 
         memory_region_info_buffer.append((void*)&info, sizeof(info));
 
