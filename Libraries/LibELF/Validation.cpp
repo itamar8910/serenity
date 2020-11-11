@@ -75,9 +75,9 @@ bool validate_elf_header(const Elf32_Ehdr& elf_header, size_t file_size, bool ve
         return false;
     }
 
-    if (ET_EXEC != elf_header.e_type && ET_DYN != elf_header.e_type && ET_REL != elf_header.e_type) {
+    if (ET_EXEC != elf_header.e_type && ET_DYN != elf_header.e_type && ET_REL != elf_header.e_type && ET_CORE != elf_header.e_type) {
         if (verbose)
-            dbgprintf("File has unloadable ELF type (%d), expected REL (1), EXEC (2) or DYN (3)!\n", elf_header.e_type);
+            dbgprintf("File has unsupported ELF type (%d), expected REL (1), EXEC (2) or DYN (3) or ER_CORE(4)!\n", elf_header.e_type);
         return false;
     }
 
@@ -141,7 +141,7 @@ bool validate_elf_header(const Elf32_Ehdr& elf_header, size_t file_size, bool ve
         return false;
     }
 
-    if (elf_header.e_shstrndx >= elf_header.e_shnum) {
+    if (elf_header.e_shstrndx != SHN_UNDEF && elf_header.e_shstrndx >= elf_header.e_shnum) {
         if (verbose)
             dbgprintf("SHENANIGANS! Section header string table index (%d) is not a valid index given we have %d section headers!\n", elf_header.e_shstrndx, elf_header.e_shnum);
         return false;
