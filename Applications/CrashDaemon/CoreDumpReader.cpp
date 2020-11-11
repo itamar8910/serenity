@@ -41,11 +41,12 @@ CoreDumpReader::CoreDumpReader(OwnPtr<MappedFile>&& coredump_file)
 {
     size_t index = 0;
     m_coredump_image.for_each_program_header([this, &index](auto pheader) {
-        dbgln("{:p}", pheader.vaddr().as_ptr());
         if (pheader.type() == PT_NOTE) {
             m_notes_segment_index = index;
+            return IterationDecision::Break;
         }
         ++index;
+        return IterationDecision::Continue;
     });
     ASSERT(m_notes_segment_index != -1);
 }

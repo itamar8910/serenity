@@ -32,12 +32,14 @@
 #include <LibCore/DirectoryWatcher.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
 
 int main()
 {
     static constexpr const char* coredumps_dir = "/tmp/coredump";
+    mkdir(coredumps_dir, 0777);
     Core::DirectoryWatcher watcher { LexicalPath(coredumps_dir) };
     while (true) {
         auto event = watcher.wait_for_event();
@@ -46,21 +48,9 @@ int main()
             continue;
         auto coredump_path = event.value().child_path;
         dbgln("New coredump: {}", coredump_path.string());
-        // nanosleep(100 * 1000000);
+
         // TODO: make file non readable at the beginning, and wait for it here to become readable
         sleep(1);
-        // TODO: Do something with this coredump!
-
-        auto reader = CoreDumpReader::create(coredump_path);
-        reader->for_each_memory_region_info([](const ELF::Core::MemoryRegionInfo* region_info) {
-            dbgln("{:p}: {}", (const char*)region_info->region_name, (const char*)region_info->region_name);
-            return IterationDecision::Continue;
-        });
-
-        reader->for_each_thread_info([](const ELF::Core::ThreadInfo* thread_info) {
-            dbgln("tid: {}, eip: {:p}", thread_info->tid, thread_info->regs.eip);
-            return IterationDecision::Continue;
-        });
 
         Backtrace backtrace(coredump_path);
     }

@@ -43,6 +43,7 @@ public:
 private:
     Optional<uint32_t> peek_memory(FlatPtr address) const;
     const ELF::Core::MemoryRegionInfo* region_containing(FlatPtr address) const;
+    String backtrace_line(FlatPtr eip);
 
     OwnPtr<CoreDumpReader> m_coredump;
 };

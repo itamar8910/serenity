@@ -28,53 +28,83 @@
 
 #include <AK/MappedFile.h>
 #include <LibELF/Loader.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
+
+static String object_name(StringView memory_region_name)
+{
+    if (!memory_region_name.contains(":"))
+        return {};
+    if (memory_region_name.contains("Loader.so"))
+        return "Loader.so";
+    return memory_region_name.substring_view(0, memory_region_name.find_first_of(":").value()).to_string();
+}
 
 static String symbolicate(FlatPtr eip, const ELF::Core::MemoryRegionInfo* region)
 {
-    String file_name = (const char*)region->region_name;
-    if (!file_name.index_of(":").has_value())
-        return "???;";
-    file_name = file_name.substring(0, file_name.index_of(":").value());
-    String path = String::format("/usr/lib/%s", file_name.characters());
-    dbgln("trying to open: {}", path);
+    StringView region_name { region->region_name };
+
+    auto name = object_name(region_name);
+
+    String path;
+    if (name.contains(".so"))
+        path = String::format("/usr/lib/%s", name.characters());
+    else {
+        path = name;
+    }
+
+    struct stat st;
+    if (stat(path.characters(), &st)) {
+        return {};
+    }
+
     auto mapped_file = make<MappedFile>(path);
     if (!mapped_file->is_valid())
-        return "???";
+        return {};
 
     auto loader = ELF::Loader::create((const u8*)mapped_file->data(), mapped_file->size());
     return loader->symbolicate(eip - region->region_start);
 }
 
+String Backtrace::backtrace_line(FlatPtr eip)
+{
+    auto* region = region_containing((FlatPtr)eip);
+    if (!region) {
+        return String::format("%p: ???", eip);
+    }
+
+    StringView region_name { region->region_name };
+    if (region_name.contains("Loader.so"))
+        return {};
+
+    auto func_name = symbolicate(eip, region);
+
+    return String::format("%p: [%s] %s", eip, object_name(region_name).characters(), func_name.is_null() ? "???" : func_name.characters());
+}
+
 Backtrace::Backtrace(const LexicalPath& coredump_path)
     : m_coredump(CoreDumpReader::create(coredump_path))
 {
-    m_coredump->for_each_thread_info([this](const ELF::Core::ThreadInfo* thread_info) {
-        dbgln("tid: {}, eip: {:p}", thread_info->tid, thread_info->regs.eip);
+    size_t thread_index = 0;
+    m_coredump->for_each_thread_info([this, &thread_index](const ELF::Core::ThreadInfo* thread_info) {
+        dbgln("Backtrace for thread #{}, tid={}", thread_index++, thread_info->tid);
 
         uint32_t* ebp = (uint32_t*)thread_info->regs.ebp;
-        dbgln("ebp: {}", ebp);
         uint32_t* eip = (uint32_t*)thread_info->regs.eip;
         while (ebp && eip) {
-            auto* region = region_containing((FlatPtr)eip);
-            if (region) {
-                String func_name = "???";
-                if (region->region_name[0])
-                    func_name = symbolicate((FlatPtr)eip, region);
-                dbgln("{:p}: {} {}", eip, (const char*)region->region_name, func_name);
-            } else
-                dbgln("{:p}: ???", eip);
 
+            auto line = backtrace_line((FlatPtr)eip);
+            if (!line.is_null())
+                dbgprintf("%s\n", line.characters());
             auto next_eip = peek_memory((FlatPtr)(ebp + 1));
             auto next_ebp = peek_memory((FlatPtr)(ebp));
             if (!next_ebp.has_value() || !next_eip.has_value()) {
-                dbgln("no value, exiting");
                 break;
             }
 
             eip = (uint32_t*)next_eip.value();
             ebp = (uint32_t*)next_ebp.value();
-
-            // dbgln("eip: {:p}, ebp: {:p}", eip, ebp);
         }
 
         return IterationDecision::Continue;
