@@ -30,7 +30,7 @@
 
 namespace ELF::Core {
 
-struct [[gnu::packed]] NotesEntry
+struct [[gnu::packed]] NotesEntryHeader
 {
     enum Type : u8 {
         Null = 0, // Terminates segment
@@ -38,21 +38,28 @@ struct [[gnu::packed]] NotesEntry
         MemoryRegionInfo,
     };
     Type type;
+};
+
+struct [[gnu::packed]] NotesEntry
+{
+    NotesEntryHeader header;
     char data[];
 };
 
 struct [[gnu::packed]] ThreadInfo
 {
+    NotesEntryHeader header;
     int tid;
     PtraceRegisters regs;
 };
 
 struct [[gnu::packed]] MemoryRegionInfo
 {
-    uint32_t region_start {};
+    NotesEntryHeader header;
+    uint32_t region_start;
     uint32_t region_end;
     uint16_t program_header_index;
-    char file_name[];
+    char region_name[]; // Null terminated
 };
 
 }
