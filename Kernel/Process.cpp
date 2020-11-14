@@ -596,6 +596,10 @@ void Process::finalize()
     dbg() << "Finalizing process " << *this;
 #endif
 
+    if (is_profiling()) {
+        auto coredump = CoreDump::create(*this, LexicalPath { String::format("/tmp/profiler_coredumps/%d", pid().value()) });
+        coredump->write();
+    }
     if (m_should_dump_core) {
         dbgln("Generating coredump for pid: {}", m_pid.value());
 
