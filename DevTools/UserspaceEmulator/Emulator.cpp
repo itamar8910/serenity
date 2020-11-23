@@ -58,7 +58,7 @@
 #    pragma GCC optimize("O3")
 #endif
 
-#define DEBUG_SPAM
+// #define DEBUG_SPAM
 
 namespace UserspaceEmulator {
 
@@ -246,7 +246,7 @@ int Emulator::exec()
     // X86::ELFSymbolProvider symbol_provider(*m_elf);
     X86::ELFSymbolProvider* symbol_provider = nullptr;
 
-    bool trace = true;
+    bool trace = false;
 
     while (!m_shutdown) {
         m_cpu.save_base_eip();
