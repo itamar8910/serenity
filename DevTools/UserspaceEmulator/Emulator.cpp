@@ -31,7 +31,10 @@
 #include "SoftCPU.h"
 #include <AK/Format.h>
 #include <AK/LexicalPath.h>
+#include <AK/MappedFile.h>
 #include <Kernel/API/Syscall.h>
+#include <LibELF/AuxiliaryVector.h>
+#include <LibELF/Image.h>
 #include <LibPthread/pthread.h>
 #include <LibX86/ELFSymbolProvider.h>
 #include <fcntl.h>
@@ -55,7 +58,7 @@
 #    pragma GCC optimize("O3")
 #endif
 
-//#define DEBUG_SPAM
+#define DEBUG_SPAM
 
 namespace UserspaceEmulator {
 
@@ -70,20 +73,45 @@ Emulator& Emulator::the()
     return *s_the;
 }
 
-Emulator::Emulator(const Vector<String>& arguments, const Vector<String>& environment, NonnullRefPtr<ELF::Loader> elf)
-    : m_elf(move(elf))
+Emulator::Emulator(const String& executable_path, const Vector<String>& arguments, const Vector<String>& environment)
+    : m_executable_path(executable_path)
+    , m_arguments(arguments)
+    , m_environment(environment)
     , m_mmu(*this)
     , m_cpu(*this)
 {
     m_malloc_tracer = make<MallocTracer>(*this);
     ASSERT(!s_the);
     s_the = this;
-    setup_stack(arguments, environment);
+    // setup_stack(arguments, environment);
     register_signal_handlers();
     setup_signal_trampoline();
 }
 
-void Emulator::setup_stack(const Vector<String>& arguments, const Vector<String>& environment)
+Vector<AuxiliaryValue> Emulator::generate_auxiliary_vector(FlatPtr load_base, FlatPtr entry_eip, String executable_path, int executable_fd) const
+{
+    // FIXME: This is not fully compatible with the auxiliary vector the kernel generates, this is just the bare
+    //        minimum to get the loader going.
+    Vector<AuxiliaryValue> auxv;
+    // PHDR/EXECFD
+    // PH*
+    auxv.append({ AuxiliaryValue::PageSize, PAGE_SIZE });
+    auxv.append({ AuxiliaryValue::BaseAddress, (void*)load_base });
+
+    auxv.append({ AuxiliaryValue::Entry, (void*)entry_eip });
+
+    // FIXME: Don't hard code this? We might support other platforms later.. (e.g. x86_64)
+    auxv.append({ AuxiliaryValue::Platform, "i386" });
+
+    auxv.append({ AuxiliaryValue::ExecFilename, executable_path });
+
+    auxv.append({ AuxiliaryValue::ExecFileDescriptor, executable_fd });
+
+    auxv.append({ AuxiliaryValue::Null, 0L });
+    return auxv;
+}
+
+void Emulator::setup_stack(Vector<AuxiliaryValue> aux_vector)
 {
     auto stack_region = make<SimpleRegion>(stack_location, stack_size);
     stack_region->set_stack(true);
@@ -92,16 +120,28 @@ void Emulator::setup_stack(const Vector<String>& arguments, const Vector<String>
 
     Vector<u32> argv_entries;
 
-    for (auto& argument : arguments) {
+    for (auto& argument : m_arguments) {
         m_cpu.push_string(argument.characters());
         argv_entries.append(m_cpu.esp().value());
     }
 
     Vector<u32> env_entries;
 
-    for (auto& variable : environment) {
+    for (auto& variable : m_environment) {
         m_cpu.push_string(variable.characters());
         env_entries.append(m_cpu.esp().value());
+    }
+
+    for (auto& auxv : aux_vector) {
+        if (!auxv.optional_string.is_empty()) {
+            m_cpu.push_string(auxv.optional_string.characters());
+            auxv.auxv.a_un.a_ptr = (void*)m_cpu.esp().value();
+        }
+    }
+
+    for (ssize_t i = aux_vector.size() - 1; i >= 0; --i) {
+        auto& value = aux_vector[i].auxv;
+        m_cpu.push_buffer((const u8*)&value, sizeof(value));
     }
 
     m_cpu.push32(shadow_wrap_as_initialized<u32>(0)); // char** envp = { envv_entries..., nullptr }
@@ -125,9 +165,40 @@ void Emulator::setup_stack(const Vector<String>& arguments, const Vector<String>
 
 bool Emulator::load_elf()
 {
-    m_elf->image().for_each_program_header([&](const ELF::Image::ProgramHeader& program_header) {
+    MappedFile mapped_executable(m_executable_path);
+    if (!mapped_executable.is_valid()) {
+        reportln("Unable to map {}", m_executable_path);
+        return false;
+    }
+
+    ELF::Image executable_elf((const u8*)mapped_executable.data(), mapped_executable.size());
+
+    if (!executable_elf.is_dynamic()) {
+        // FIXME: Support static objects
+        ASSERT_NOT_REACHED();
+    }
+
+    String interpreter_path;
+    executable_elf.for_each_program_header([&interpreter_path](const ELF::Image::ProgramHeader& program_header) {
+        if (program_header.type() == PT_INTERP) {
+            interpreter_path = String(program_header.raw_data(), program_header.size_in_image() - 1);
+        }
+    });
+    ASSERT(!interpreter_path.is_null());
+    dbgln("interpreter: {}", interpreter_path);
+
+    auto interpreter_file = make<MappedFile>(interpreter_path);
+    ASSERT(interpreter_file->is_valid());
+    ELF::Image interpreter_image((const u8*)interpreter_file->data(), interpreter_file->size());
+
+    // TODO: This should be randomized for ASLR
+    constexpr FlatPtr interpreter_load_offset = 0x08000000;
+    interpreter_image.for_each_program_header([&](const ELF::Image::ProgramHeader& program_header) {
+        // Loader is not allowed to have its own TLS regions
+        ASSERT(program_header.type() != PT_TLS);
+
         if (program_header.type() == PT_LOAD) {
-            auto region = make<SimpleRegion>(program_header.vaddr().get(), program_header.size_in_memory());
+            auto region = make<SimpleRegion>(program_header.vaddr().offset(interpreter_load_offset).get(), program_header.size_in_memory());
             if (program_header.is_executable() && !program_header.is_writable())
                 region->set_text(true);
             memcpy(region->data(), program_header.raw_data(), program_header.size_in_image());
@@ -135,46 +206,47 @@ bool Emulator::load_elf()
             mmu().add_region(move(region));
             return;
         }
-        if (program_header.type() == PT_TLS) {
-            auto tcb_region = make<SimpleRegion>(0x20000000, program_header.size_in_memory());
-            memcpy(tcb_region->data(), program_header.raw_data(), program_header.size_in_image());
-            memset(tcb_region->shadow_data(), 0x01, program_header.size_in_memory());
-
-            auto tls_region = make<SimpleRegion>(0, 4);
-            tls_region->write32(0, shadow_wrap_as_initialized(tcb_region->base() + program_header.size_in_memory()));
-            memset(tls_region->shadow_data(), 0x01, 4);
-
-            mmu().add_region(move(tcb_region));
-            mmu().set_tls_region(move(tls_region));
-            return;
-        }
     });
 
-    m_cpu.set_eip(m_elf->image().entry().get());
+    auto entry_point = interpreter_image.entry().offset(interpreter_load_offset).get();
+    m_cpu.set_eip(entry_point);
 
-    auto malloc_symbol = m_elf->find_demangled_function("malloc");
-    auto free_symbol = m_elf->find_demangled_function("free");
-    auto realloc_symbol = m_elf->find_demangled_function("realloc");
-    auto malloc_size_symbol = m_elf->find_demangled_function("malloc_size");
+    // executable_fd will be used by the loader
+    int executable_fd = open(m_executable_path.characters(), O_RDONLY);
+    if (executable_fd < 0)
+        return false;
 
-    m_malloc_symbol_start = malloc_symbol.value().value();
-    m_malloc_symbol_end = m_malloc_symbol_start + malloc_symbol.value().size();
-    m_free_symbol_start = free_symbol.value().value();
-    m_free_symbol_end = m_free_symbol_start + free_symbol.value().size();
-    m_realloc_symbol_start = realloc_symbol.value().value();
-    m_realloc_symbol_end = m_realloc_symbol_start + realloc_symbol.value().size();
-    m_malloc_size_symbol_start = malloc_size_symbol.value().value();
-    m_malloc_size_symbol_end = m_malloc_size_symbol_start + malloc_size_symbol.value().size();
+    auto aux_vector = generate_auxiliary_vector(interpreter_load_offset, entry_point, m_executable_path, executable_fd);
+    setup_stack(move(aux_vector));
 
-    m_debug_info = make<Debug::DebugInfo>(m_elf);
+    // TODO: load Loader, pass open fd to main program, generate aux vector, and execute the loader
+    // only then fix malloc symbols etc
+
+    // auto malloc_symbol = m_elf->find_demangled_function("malloc");
+    // auto free_symbol = m_elf->find_demangled_function("free");
+    // auto realloc_symbol = m_elf->find_demangled_function("realloc");
+    // auto malloc_size_symbol = m_elf->find_demangled_function("malloc_size");
+
+    // m_malloc_symbol_start = malloc_symbol.value().value();
+    // m_malloc_symbol_end = m_malloc_symbol_start + malloc_symbol.value().size();
+    // m_free_symbol_start = free_symbol.value().value();
+    // m_free_symbol_end = m_free_symbol_start + free_symbol.value().size();
+    // m_realloc_symbol_start = realloc_symbol.value().value();
+    // m_realloc_symbol_end = m_realloc_symbol_start + realloc_symbol.value().size();
+    // m_malloc_size_symbol_start = malloc_size_symbol.value().value();
+    // m_malloc_size_symbol_end = m_malloc_size_symbol_start + malloc_size_symbol.value().size();
+
+    // m_debug_info = make<Debug::DebugInfo>(m_elf);
+
     return true;
 }
 
 int Emulator::exec()
 {
-    X86::ELFSymbolProvider symbol_provider(*m_elf);
+    // X86::ELFSymbolProvider symbol_provider(*m_elf);
+    X86::ELFSymbolProvider* symbol_provider = nullptr;
 
-    bool trace = false;
+    bool trace = true;
 
     while (!m_shutdown) {
         m_cpu.save_base_eip();
@@ -182,12 +254,12 @@ int Emulator::exec()
         auto insn = X86::Instruction::from_stream(m_cpu, true, true);
 
         if (trace)
-            outln("{:p}  \033[33;1m{}\033[0m", m_cpu.base_eip(), insn.to_string(m_cpu.base_eip(), &symbol_provider));
+            outln("{:p}  \033[33;1m{}\033[0m", m_cpu.base_eip(), insn.to_string(m_cpu.base_eip(), symbol_provider));
 
         (m_cpu.*insn.handler())(insn);
 
-        if (trace)
-            m_cpu.dump();
+        // if (trace)
+        //     m_cpu.dump();
 
         if (m_pending_signals)
             dispatch_one_pending_signal();
@@ -219,15 +291,17 @@ Vector<FlatPtr> Emulator::raw_backtrace()
 
 void Emulator::dump_backtrace(const Vector<FlatPtr>& backtrace)
 {
-    for (auto& address : backtrace) {
-        u32 offset = 0;
-        String symbol = m_elf->symbolicate(address, &offset);
-        auto source_position = m_debug_info->get_source_position(address);
-        if (source_position.has_value())
-            reportln("=={}==    {:p}  {} (\033[34;1m{}\033[0m:{})", getpid(), address, symbol, LexicalPath(source_position.value().file_path).basename(), source_position.value().line_number);
-        else
-            reportln("=={}==    {:p}  {} +{:x}", getpid(), address, symbol, offset);
-    }
+    (void)backtrace;
+    // FIXME
+    // for (auto& address : backtrace) {
+    //     u32 offset = 0;
+    //     String symbol = m_elf->symbolicate(address, &offset);
+    //     auto source_position = m_debug_info->get_source_position(address);
+    //     if (source_position.has_value())
+    //         reportln("=={}==    {:p}  {} (\033[34;1m{}\033[0m:{})", getpid(), address, symbol, LexicalPath(source_position.value().file_path).basename(), source_position.value().line_number);
+    //     else
+    //         reportln("=={}==    {:p}  {} +{:x}", getpid(), address, symbol, offset);
+    // }
 }
 
 void Emulator::dump_backtrace()
@@ -400,6 +474,8 @@ u32 Emulator::virt_syscall(u32 function, u32 arg1, u32 arg2, u32 arg3)
         return virt$set_thread_name(arg1, arg2, arg3);
     case SC_setsid:
         return virt$setsid();
+    case SC_allocate_tls:
+        return virt$allocate_tls(arg1);
     default:
         reportln("\n=={}==  \033[31;1mUnimplemented syscall: {}\033[0m, {:p}", getpid(), Syscall::to_string((Syscall::Function)function), function);
         dump_backtrace();
@@ -864,10 +940,13 @@ u32 Emulator::virt$mmap(u32 params_addr)
     Syscall::SC_mmap_params params;
     mmu().copy_from_vm(&params, params_addr, sizeof(params));
 
-    ASSERT(params.addr == 0);
+    // ASSERT(params.addr == 0);
 
     u32 final_size = round_up_to_power_of_two(params.size, PAGE_SIZE);
     u32 final_address = allocate_vm(final_size, params.alignment);
+    if (params.addr != 0) {
+        ASSERT(params.addr == final_address);
+    }
 
     if (params.flags & MAP_ANONYMOUS)
         mmu().add_region(MmapRegion::create_anonymous(final_address, final_size, params.prot));
@@ -1491,6 +1570,22 @@ int Emulator::virt$set_thread_name(pid_t pid, FlatPtr name_addr, size_t name_len
 pid_t Emulator::virt$setsid()
 {
     return syscall(SC_setsid);
+}
+
+u32 Emulator::virt$allocate_tls(size_t size)
+{
+    auto tcb_region = make<SimpleRegion>(0x20000000, size);
+    bzero(tcb_region->data(), size);
+    memset(tcb_region->shadow_data(), 0x01, size);
+
+    auto tls_region = make<SimpleRegion>(0, 4);
+    tls_region->write32(0, shadow_wrap_as_initialized(tcb_region->base() + (u32)size));
+    memset(tls_region->shadow_data(), 0x01, 4);
+
+    u32 tls_base = tcb_region->base();
+    mmu().add_region(move(tcb_region));
+    mmu().set_tls_region(move(tls_region));
+    return tls_base;
 }
 
 }

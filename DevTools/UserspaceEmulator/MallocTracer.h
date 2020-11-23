@@ -90,7 +90,7 @@ private:
 
     Emulator& m_emulator;
 
-    bool m_auditing_enabled { true };
+    bool m_auditing_enabled { false }; // TODO: Fixme
 };
 
 ALWAYS_INLINE Mallocation* MallocTracer::find_mallocation(const Region& region, FlatPtr address)

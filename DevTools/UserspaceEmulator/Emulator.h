@@ -32,6 +32,7 @@
 #include "SoftMMU.h"
 #include <AK/Types.h>
 #include <LibDebug/DebugInfo.h>
+#include <LibELF/AuxiliaryVector.h>
 #include <LibELF/Loader.h>
 #include <LibX86/Instruction.h>
 #include <signal.h>
@@ -45,7 +46,7 @@ class Emulator {
 public:
     static Emulator& the();
 
-    Emulator(const Vector<String>& arguments, const Vector<String>& environment, NonnullRefPtr<ELF::Loader>);
+    Emulator(const String& executable_path, const Vector<String>& arguments, const Vector<String>& environment);
 
     bool load_elf();
     void dump_backtrace();
@@ -64,7 +65,9 @@ public:
     void did_receive_signal(int signum) { m_pending_signals |= (1 << signum); }
 
 private:
-    NonnullRefPtr<ELF::Loader> m_elf;
+    const String m_executable_path;
+    const Vector<String> m_arguments;
+    const Vector<String> m_environment;
     OwnPtr<Debug::DebugInfo> m_debug_info;
 
     SoftMMU m_mmu;
@@ -72,7 +75,8 @@ private:
 
     OwnPtr<MallocTracer> m_malloc_tracer;
 
-    void setup_stack(const Vector<String>& arguments, const Vector<String>& environment);
+    void setup_stack(Vector<AuxiliaryValue>);
+    Vector<AuxiliaryValue> generate_auxiliary_vector(FlatPtr load_base, FlatPtr entry_eip, String executable_path, int executable_fd) const;
     void register_signal_handlers();
     void setup_signal_trampoline();
 
@@ -155,6 +159,7 @@ private:
     int virt$sched_getparam(pid_t, FlatPtr);
     int virt$set_thread_name(pid_t, FlatPtr, size_t);
     pid_t virt$setsid();
+    u32 virt$allocate_tls(size_t);
 
     FlatPtr allocate_vm(size_t size, size_t alignment);
 
