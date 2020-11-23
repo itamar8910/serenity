@@ -1574,7 +1574,9 @@ pid_t Emulator::virt$setsid()
 
 u32 Emulator::virt$allocate_tls(size_t size)
 {
-    auto tcb_region = make<SimpleRegion>(0x20000000, size);
+    // TODO: Why is this needed? without this, the loader overflows the bounds of the TLS region.
+    constexpr size_t TLS_SIZE_HACK = 8;
+    auto tcb_region = make<SimpleRegion>(0x20000000, size + TLS_SIZE_HACK);
     bzero(tcb_region->data(), size);
     memset(tcb_region->shadow_data(), 0x01, size);
 
