@@ -25,7 +25,11 @@
  */
 
 #include "DebugSession.h"
+#include <AK/JsonObject.h>
+#include <AK/JsonValue.h>
 #include <AK/Optional.h>
+#include <LibCore/File.h>
+#include <LibRegex/Regex.h>
 #include <stdlib.h>
 
 namespace Debug {
@@ -80,7 +84,10 @@ OwnPtr<DebugSession> DebugSession::exec_and_attach(const String& command)
         for (size_t i = 0; i < parts.size(); i++) {
             args[i] = parts[i].characters();
         }
-        int rc = execvp(args[0], const_cast<char**>(args));
+        const char** envp = (const char**)calloc(2, sizeof(const char*));
+        // This causes loader to stop on a breakpoint before jumping to the entry point of the program.
+        envp[0] = "_LOADER_BREAKPOINT=1";
+        int rc = execvpe(args[0], const_cast<char**>(args), const_cast<char**>(envp));
         if (rc < 0) {
             perror("execvp");
         }
@@ -107,7 +114,19 @@ OwnPtr<DebugSession> DebugSession::exec_and_attach(const String& command)
         return nullptr;
     }
 
-    return adopt_own(*new DebugSession(pid));
+    auto debug_session = adopt_own(*new DebugSession(pid));
+
+    // Continue until breakpoint before entry point of main program
+    int wstatus = debug_session->continue_debuggee_and_wait();
+    if (WSTOPSIG(wstatus) != SIGTRAP) {
+        dbgln("expected SIGTRAP");
+        return nullptr;
+    }
+
+    // At this point, libraries should have been loaded
+    debug_session->update_loaded_libs();
+
+    return move(debug_session);
 }
 
 bool DebugSession::poke(u32* address, u32 data)
@@ -266,6 +285,69 @@ void DebugSession::detach()
         remove_breakpoint(breakpoint);
     }
     continue_debuggee();
+}
+
+DebugSession::PendingBreakpoint::PendingBreakpoint(const String& symbol_name)
+    : symbol(symbol_name)
+    , type(PendingBreakpoint::Type::Symbol)
+{
+}
+DebugSession::PendingBreakpoint::PendingBreakpoint(const String& source_file, size_t source_line)
+    : source_position(DebugInfo::SourcePosition(source_file, source_line))
+    , type(PendingBreakpoint::Type::SourcePosition)
+{
+}
+
+bool DebugSession::insert_breakpoint(const String& symbol_name)
+{
+    (void)symbol_name;
+    return true;
+}
+bool DebugSession::insert_breakpoint(const String& file_name, size_t line_number)
+{
+    (void)file_name;
+    (void)line_number;
+    return true;
+}
+
+void DebugSession::update_loaded_libs()
+{
+    auto file = Core::File::construct(String::format("/proc/%u/vm", m_debuggee_pid));
+    bool rc = file->open(Core::IODevice::ReadOnly);
+    ASSERT(rc);
+
+    auto file_contents = file->read_all();
+    auto json = JsonValue::from_string(file_contents);
+    ASSERT(json.has_value());
+
+    auto vm_entries = json.value().as_array();
+    Regex<PosixExtended> re("(.+): \\.text");
+
+    auto get_path_to_object = [&re](const String& vm_name) -> Optional<String> {
+        if (vm_name == "/usr/lib/Loader.so")
+            return vm_name;
+        RegexResult result;
+        auto rc = re.search(vm_name, result);
+        if (!rc)
+            return {};
+        auto lib_name = result.capture_group_matches.at(0).at(0).view.u8view().to_string();
+        if (lib_name[0] == '/')
+            return lib_name;
+        return String::format("/usr/lib/%s", lib_name.characters());
+    };
+
+    vm_entries.for_each([&](auto& entry) {
+        // TODO: check that region is executable
+        auto vm_name = entry.as_object().get("name").as_string();
+        dbgln("vm name: {}", vm_name);
+
+        auto object_path = get_path_to_object(vm_name);
+        if (!object_path.has_value())
+            return IterationDecision::Continue;
+
+        dbgln("object path: {}", object_path.value());
+        return IterationDecision::Continue;
+    });
 }
 
 }

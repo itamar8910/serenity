@@ -336,7 +336,7 @@ Vector<DebugInfo::SourcePosition> DebugInfo::source_lines_in_scope(const Variabl
 
 DebugInfo::SourcePosition DebugInfo::SourcePosition::from_line_info(const Dwarf::LineProgram::LineInfo& line)
 {
-    return { line.file, line.line, line.address };
+    return { line.file, line.line, { line.address } };
 }
 
 }

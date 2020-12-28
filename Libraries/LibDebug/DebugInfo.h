@@ -47,7 +47,23 @@ public:
     struct SourcePosition {
         FlyString file_path;
         size_t line_number { 0 };
-        u32 address_of_first_statement { 0 };
+        Optional<u32> address_of_first_statement;
+
+        SourcePosition()
+            : SourcePosition(String::empty(), 0)
+        {
+        }
+        SourcePosition(String file_path, size_t line_number)
+            : file_path(file_path)
+            , line_number(line_number)
+        {
+        }
+        SourcePosition(String file_path, size_t line_number, u32 address_of_first_statement)
+            : file_path(file_path)
+            , line_number(line_number)
+            , address_of_first_statement(address_of_first_statement)
+        {
+        }
 
         bool operator==(const SourcePosition& other) const { return file_path == other.file_path && line_number == other.line_number; }
         bool operator!=(const SourcePosition& other) const { return !(*this == other); }

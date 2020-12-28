@@ -245,7 +245,7 @@ void Debugger::do_step_over(const PtraceRegisters& regs)
     ASSERT(current_function.has_value());
     auto lines_in_current_function = m_debug_session->debug_info().source_lines_in_scope(current_function.value());
     for (const auto& line : lines_in_current_function) {
-        insert_temporary_breakpoint(line.address_of_first_statement);
+        insert_temporary_breakpoint(line.address_of_first_statement.value());
     }
     insert_temporary_breakpoint_at_return_address(regs);
 }

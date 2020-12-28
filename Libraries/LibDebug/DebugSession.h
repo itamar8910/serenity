@@ -65,6 +65,8 @@ public:
         BreakPointState state;
     };
 
+    bool insert_breakpoint(const String& symbol_name);
+    bool insert_breakpoint(const String& file_name, size_t line_number);
     bool insert_breakpoint(void* address);
     bool disable_breakpoint(void* address);
     bool enable_breakpoint(void* address);
@@ -117,12 +119,26 @@ public:
     };
 
 private:
+    struct PendingBreakpoint {
+        PendingBreakpoint(const String& symbol_name);
+        PendingBreakpoint(const String& source_file, size_t source_line);
+
+        Optional<String> symbol;
+        Optional<DebugInfo::SourcePosition> source_position;
+        enum class Type {
+            Symbol,
+            SourcePosition,
+        } type;
+    };
+
     explicit DebugSession(pid_t);
 
     // x86 breakpoint instruction "int3"
     static constexpr u8 BREAKPOINT_INSTRUCTION = 0xcc;
 
     static MappedFile map_executable_for_process(pid_t);
+
+    void update_loaded_libs();
 
     int m_debuggee_pid { -1 };
     bool m_is_debuggee_dead { false };
@@ -131,6 +147,16 @@ private:
     DebugInfo m_debug_info;
 
     HashMap<void*, BreakPoint> m_breakpoints;
+
+    struct LoadedLibrary {
+        String name;
+        MappedFile file;
+        ELF::Image image;
+        FlatPtr base_address;
+    };
+
+    // Maps from base address to loaded library
+    HashMap<FlatPtr, LoadedLibrary> m_loaded_libraries;
 };
 
 template<typename Callback>
@@ -139,12 +165,13 @@ void DebugSession::run(Callback callback)
 
     enum class State {
         FreeRun,
+        FirstIteration,
         Syscall,
         ConsecutiveBreakpoint,
         SingleStep,
     };
 
-    State state { State::FreeRun };
+    State state { State::FirstIteration };
 
     auto do_continue_and_wait = [&]() {
         int wstatus = continue_debuggee_and_wait((state == State::FreeRun) ? ContinueType::FreeRun : ContinueType::Syscall);
@@ -164,6 +191,8 @@ void DebugSession::run(Callback callback)
             if (do_continue_and_wait())
                 break;
         }
+        if (state == State::FirstIteration)
+            state = State::FreeRun;
 
         auto regs = get_registers();
         Optional<BreakPoint> current_breakpoint;

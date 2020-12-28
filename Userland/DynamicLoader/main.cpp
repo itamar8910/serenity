@@ -299,8 +299,13 @@ void _start(int, char**, char**);
 void _start(int argc, char** argv, char** envp)
 {
     g_envp = envp;
-    char** env;
+    bool do_breakpoint_trap_before_entry = false;
+    char** env = nullptr;
     for (env = envp; *env; ++env) {
+        dbgprintf("%s\n", *env);
+        if (StringView { *env } == "_LOADER_BREAKPOINT=1") {
+            do_breakpoint_trap_before_entry = true;
+        }
     }
 
     auxv_t* auxvp = (auxv_t*)++env;
@@ -315,6 +320,9 @@ void _start(int argc, char** argv, char** envp)
 
     MainFunction main_function = (MainFunction)(entry);
     VERBOSE("jumping to main program entry point: %p\n", main_function);
+    if (do_breakpoint_trap_before_entry) {
+        asm("int3");
+    }
     int rc = main_function(argc, argv, envp);
     VERBOSE("rc: %d\n", rc);
     if (g_libc_exit != nullptr) {
