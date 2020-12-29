@@ -302,7 +302,6 @@ void _start(int argc, char** argv, char** envp)
     bool do_breakpoint_trap_before_entry = false;
     char** env = nullptr;
     for (env = envp; *env; ++env) {
-        dbgprintf("%s\n", *env);
         if (StringView { *env } == "_LOADER_BREAKPOINT=1") {
             do_breakpoint_trap_before_entry = true;
         }

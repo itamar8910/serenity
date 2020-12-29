@@ -119,18 +119,6 @@ public:
     };
 
 private:
-    struct PendingBreakpoint {
-        PendingBreakpoint(const String& symbol_name);
-        PendingBreakpoint(const String& source_file, size_t source_line);
-
-        Optional<String> symbol;
-        Optional<DebugInfo::SourcePosition> source_position;
-        enum class Type {
-            Symbol,
-            SourcePosition,
-        } type;
-    };
-
     explicit DebugSession(pid_t);
 
     // x86 breakpoint instruction "int3"
@@ -151,12 +139,20 @@ private:
     struct LoadedLibrary {
         String name;
         MappedFile file;
-        ELF::Image image;
+        NonnullOwnPtr<DebugInfo> debug_info;
         FlatPtr base_address;
+
+        LoadedLibrary(String&& name, MappedFile&& file, NonnullOwnPtr<DebugInfo>&& debug_info, FlatPtr base_address)
+            : name(move(name))
+            , file(move(file))
+            , debug_info(move(debug_info))
+            , base_address(base_address)
+        {
+        }
     };
 
     // Maps from base address to loaded library
-    HashMap<FlatPtr, LoadedLibrary> m_loaded_libraries;
+    HashMap<FlatPtr, NonnullOwnPtr<LoadedLibrary>> m_loaded_libraries;
 };
 
 template<typename Callback>

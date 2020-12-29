@@ -27,6 +27,7 @@
 #include "DebugSession.h"
 #include <AK/JsonObject.h>
 #include <AK/JsonValue.h>
+#include <AK/LexicalPath.h>
 #include <AK/Optional.h>
 #include <LibCore/File.h>
 #include <LibRegex/Regex.h>
@@ -287,17 +288,6 @@ void DebugSession::detach()
     continue_debuggee();
 }
 
-DebugSession::PendingBreakpoint::PendingBreakpoint(const String& symbol_name)
-    : symbol(symbol_name)
-    , type(PendingBreakpoint::Type::Symbol)
-{
-}
-DebugSession::PendingBreakpoint::PendingBreakpoint(const String& source_file, size_t source_line)
-    : source_position(DebugInfo::SourcePosition(source_file, source_line))
-    , type(PendingBreakpoint::Type::SourcePosition)
-{
-}
-
 bool DebugSession::insert_breakpoint(const String& symbol_name)
 {
     (void)symbol_name;
@@ -346,6 +336,24 @@ void DebugSession::update_loaded_libs()
             return IterationDecision::Continue;
 
         dbgln("object path: {}", object_path.value());
+
+        auto lib_name = LexicalPath(object_path.value()).basename();
+        if (lib_name == "libgcc_s.so")
+            return IterationDecision::Continue;
+
+        if (m_loaded_libraries.contains(lib_name))
+            return IterationDecision::Continue;
+
+        MappedFile lib_file(object_path.value());
+        if (!lib_file.is_valid())
+            return IterationDecision::Continue;
+
+        auto debug_info = make<DebugInfo>(make<ELF::Image>(reinterpret_cast<const u8*>(lib_file.data()), lib_file.size()));
+
+        FlatPtr base_address = entry.as_object().get("address").as_u32();
+        auto lib = make<LoadedLibrary>(move(lib_name), move(lib_file), move(debug_info), base_address);
+        m_loaded_libraries.set(lib_name, move(lib));
+
         return IterationDecision::Continue;
     });
 }
