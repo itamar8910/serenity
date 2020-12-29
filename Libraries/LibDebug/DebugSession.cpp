@@ -37,8 +37,6 @@ namespace Debug {
 
 DebugSession::DebugSession(pid_t pid)
     : m_debuggee_pid(pid)
-    , m_executable(map_executable_for_process(pid))
-    , m_debug_info(make<ELF::Image>(reinterpret_cast<const u8*>(m_executable.data()), m_executable.size()))
 {
 }
 
@@ -356,6 +354,49 @@ void DebugSession::update_loaded_libs()
 
         return IterationDecision::Continue;
     });
+}
+
+const DebugSession::LoadedLibrary* DebugSession::library_at(FlatPtr address) const
+{
+    const LoadedLibrary* result = nullptr;
+    for_each_loaded_library([&result, address](const auto& lib) {
+        if (address >= lib.base_address && address < lib.base_address + lib.debug_info->elf().size()) {
+            result = &lib;
+            return IterationDecision::Break;
+        }
+        return IterationDecision::Continue;
+    });
+    return result;
+}
+
+String DebugSession::symbolicate(FlatPtr address) const
+{
+    //FIXME: ELF::Image symlicate() API should return String::empty() if symbol is not found.
+    auto* lib = library_at(address);
+    if (!lib)
+        return "??";
+    return lib->debug_info->elf().symbolicate(address);
+}
+
+Optional<FlatPtr> DebugSession::get_instruction_from_source(const String& file, size_t line) const
+{
+    (void)file;
+    (void)line;
+    return {}; // TODO
+}
+Optional<DebugInfo::SourcePosition> DebugSession::get_source_position(FlatPtr address) const
+{
+    (void)address;
+    return {}; // TODO
+}
+Optional<DebugInfo::VariablesScope> DebugSession::get_containing_function(FlatPtr address) const
+{
+    (void)address;
+    return {}; // TODO
+}
+Vector<DebugInfo::SourcePosition> DebugSession::source_lines_in_scope(const DebugInfo::VariablesScope&) const
+{
+    return {}; // TODO
 }
 
 }

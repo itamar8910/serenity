@@ -100,10 +100,6 @@ public:
     template<typename Callback>
     void run(Callback callback);
 
-    const ELF::Image& elf() const { return m_debug_info.elf(); }
-    const MappedFile& executable() const { return m_executable; }
-    const DebugInfo& debug_info() const { return m_debug_info; }
-
     enum DebugDecision {
         Continue,
         SingleStep,
@@ -117,24 +113,6 @@ public:
         Syscall,
         Exited,
     };
-
-private:
-    explicit DebugSession(pid_t);
-
-    // x86 breakpoint instruction "int3"
-    static constexpr u8 BREAKPOINT_INSTRUCTION = 0xcc;
-
-    static MappedFile map_executable_for_process(pid_t);
-
-    void update_loaded_libs();
-
-    int m_debuggee_pid { -1 };
-    bool m_is_debuggee_dead { false };
-
-    MappedFile m_executable;
-    DebugInfo m_debug_info;
-
-    HashMap<void*, BreakPoint> m_breakpoints;
 
     struct LoadedLibrary {
         String name;
@@ -151,8 +129,40 @@ private:
         }
     };
 
+    template<typename Func>
+    void for_each_loaded_library(Func f) const
+    {
+        for (const auto& lib_name : m_loaded_libraries.keys()) {
+            const auto& lib = *m_loaded_libraries.get(lib_name).value();
+            if (f(lib) == IterationDecision::Break)
+                break;
+        }
+    }
+
+    const LoadedLibrary* library_at(FlatPtr address) const;
+    String symbolicate(FlatPtr address) const;
+    Optional<FlatPtr> get_instruction_from_source(const String& file, size_t line) const;
+    Optional<DebugInfo::SourcePosition> get_source_position(FlatPtr address) const;
+    Optional<DebugInfo::VariablesScope> get_containing_function(FlatPtr address) const;
+    Vector<DebugInfo::SourcePosition> source_lines_in_scope(const DebugInfo::VariablesScope&) const;
+
+private:
+    explicit DebugSession(pid_t);
+
+    // x86 breakpoint instruction "int3"
+    static constexpr u8 BREAKPOINT_INSTRUCTION = 0xcc;
+
+    static MappedFile map_executable_for_process(pid_t);
+
+    void update_loaded_libs();
+
+    int m_debuggee_pid { -1 };
+    bool m_is_debuggee_dead { false };
+
+    HashMap<void*, BreakPoint> m_breakpoints;
+
     // Maps from base address to loaded library
-    HashMap<FlatPtr, NonnullOwnPtr<LoadedLibrary>> m_loaded_libraries;
+    HashMap<String, NonnullOwnPtr<LoadedLibrary>> m_loaded_libraries;
 };
 
 template<typename Callback>

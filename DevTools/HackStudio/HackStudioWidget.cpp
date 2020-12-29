@@ -523,7 +523,7 @@ void HackStudioWidget::initialize_debugger()
         [this](const PtraceRegisters& regs) {
             ASSERT(Debugger::the().session());
             const auto& debug_session = *Debugger::the().session();
-            auto source_position = debug_session.debug_info().get_source_position(regs.eip);
+            auto source_position = debug_session.get_source_position(regs.eip);
             if (!source_position.has_value()) {
                 dbgln("Could not find source position for address: {:p}", regs.eip);
                 return Debugger::HasControlPassedToUser::No;

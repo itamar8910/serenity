@@ -76,7 +76,7 @@ void Debugger::on_breakpoint_change(const String& file, size_t line, BreakpointC
     if (!session)
         return;
 
-    auto address = session->debug_info().get_instruction_from_source(position.file_path, position.line_number);
+    auto address = session->get_instruction_from_source(position.file_path, position.line_number);
     if (!address.has_value()) {
         dbgln("Warning: couldn't get instruction address from source");
         // TODO: Currently, the GUI will indicate that a breakpoint was inserted/removed at this line,
@@ -114,7 +114,7 @@ void Debugger::start()
 
     for (const auto& breakpoint : m_breakpoints) {
         dbgln("insertig breakpoint at: {}:{}", breakpoint.file_path, breakpoint.line_number);
-        auto address = m_debug_session->debug_info().get_instruction_from_source(breakpoint.file_path, breakpoint.line_number);
+        auto address = m_debug_session->get_instruction_from_source(breakpoint.file_path, breakpoint.line_number);
         if (address.has_value()) {
             bool success = m_debug_session->insert_breakpoint(reinterpret_cast<void*>(address.value()));
             ASSERT(success);
@@ -140,7 +140,7 @@ int Debugger::debugger_loop()
         ASSERT(optional_regs.has_value());
         const PtraceRegisters& regs = optional_regs.value();
 
-        auto source_position = m_debug_session->debug_info().get_source_position(regs.eip);
+        auto source_position = m_debug_session->get_source_position(regs.eip);
         if (m_state.get() == Debugger::DebuggingState::SingleStepping) {
             ASSERT(source_position.has_value());
             if (m_state.should_stop_single_stepping(source_position.value())) {
@@ -241,9 +241,12 @@ void Debugger::do_step_over(const PtraceRegisters& regs)
 {
     // To step over, we insert a temporary breakpoint at each line in the current function,
     // as well as at the current function's return point, and continue execution.
-    auto current_function = m_debug_session->debug_info().get_containing_function(regs.eip);
+    auto lib = m_debug_session->library_at(regs.eip);
+    if (!lib)
+        return;
+    auto current_function = lib->debug_info->get_containing_function(regs.eip - lib->base_address);
     ASSERT(current_function.has_value());
-    auto lines_in_current_function = m_debug_session->debug_info().source_lines_in_scope(current_function.value());
+    auto lines_in_current_function = lib->debug_info->source_lines_in_scope(current_function.value());
     for (const auto& line : lines_in_current_function) {
         insert_temporary_breakpoint(line.address_of_first_statement.value());
     }

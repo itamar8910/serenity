@@ -230,7 +230,7 @@ int main(int argc, char** argv)
     sigaction(SIGINT, &sa, nullptr);
 
     Debug::DebugInfo::SourcePosition previous_source_position;
-    bool in_step_line = false;
+    // bool in_step_line = false;
 
     g_debug_session->run([&](Debug::DebugSession::DebugBreakReason reason, Optional<PtraceRegisters> optional_regs) {
         if (reason == Debug::DebugSession::DebugBreakReason::Exited) {
@@ -241,28 +241,30 @@ int main(int argc, char** argv)
         ASSERT(optional_regs.has_value());
         const PtraceRegisters& regs = optional_regs.value();
 
-        auto symbol_at_ip = g_debug_session->elf().symbolicate(regs.eip);
-        auto source_position = g_debug_session->debug_info().get_source_position(regs.eip);
+        auto symbol_at_ip = g_debug_session->symbolicate(regs.eip);
 
-        if (in_step_line) {
-            bool no_source_info = !source_position.has_value();
-            if (no_source_info || source_position.value() != previous_source_position) {
-                if (no_source_info)
-                    outln("No source information for current instruction! stoppoing.");
-                in_step_line = false;
-            } else {
-                return Debug::DebugSession::DebugDecision::SingleStep;
-            }
-        }
+        // TODO: re-enable source-level things
+        // auto source_position = g_debug_session->debug_info().get_source_position(regs.eip);
+
+        // if (in_step_line) {
+        //     bool no_source_info = !source_position.has_value();
+        //     if (no_source_info || source_position.value() != previous_source_position) {
+        //         if (no_source_info)
+        //             outln("No source information for current instruction! stoppoing.");
+        //         in_step_line = false;
+        //     } else {
+        //         return Debug::DebugSession::DebugDecision::SingleStep;
+        //     }
+        // }
 
         outln("Program is stopped at: {:p} ({})", regs.eip, symbol_at_ip);
 
-        if (source_position.has_value()) {
-            previous_source_position = source_position.value();
-            outln("Source location: {}:{}", source_position.value().file_path, source_position.value().line_number);
-        } else {
-            outln("(No source location information for the current instruction)");
-        }
+        // if (source_position.has_value()) {
+        //     previous_source_position = source_position.value();
+        //     outln("Source location: {}:{}", source_position.value().file_path, source_position.value().line_number);
+        // } else {
+        //     outln("(No source location information for the current instruction)");
+        // }
 
         for (;;) {
             auto command_result = editor->get_line("(sdb) ");
@@ -285,13 +287,13 @@ int main(int argc, char** argv)
                 decision = Debug::DebugSession::DebugDecision::SingleStep;
                 success = true;
             } else if (command == "sl") {
-                if (source_position.has_value()) {
-                    decision = Debug::DebugSession::DebugDecision::SingleStep;
-                    in_step_line = true;
-                    success = true;
-                } else {
-                    outln("No source location information for the current instruction");
-                }
+                // if (source_position.has_value()) {
+                //     decision = Debug::DebugSession::DebugDecision::SingleStep;
+                //     in_step_line = true;
+                //     success = true;
+                // } else {
+                //     outln("No source location information for the current instruction");
+                // }
             } else if (command == "regs") {
                 handle_print_registers(regs);
                 success = true;
