@@ -257,7 +257,7 @@ int main(int argc, char** argv)
         //     }
         // }
 
-        outln("Program is stopped at: {:p} ({})", regs.eip, symbol_at_ip);
+        outln("Program is stopped at: {:p} ({}:{})", regs.eip, symbol_at_ip.value().library_name, symbol_at_ip.value().symbol);
 
         // if (source_position.has_value()) {
         //     previous_source_position = source_position.value();

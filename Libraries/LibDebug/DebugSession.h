@@ -120,8 +120,8 @@ public:
         NonnullOwnPtr<DebugInfo> debug_info;
         FlatPtr base_address;
 
-        LoadedLibrary(String&& name, MappedFile&& file, NonnullOwnPtr<DebugInfo>&& debug_info, FlatPtr base_address)
-            : name(move(name))
+        LoadedLibrary(const String& name, MappedFile&& file, NonnullOwnPtr<DebugInfo>&& debug_info, FlatPtr base_address)
+            : name(name)
             , file(move(file))
             , debug_info(move(debug_info))
             , base_address(base_address)
@@ -140,7 +140,12 @@ public:
     }
 
     const LoadedLibrary* library_at(FlatPtr address) const;
-    String symbolicate(FlatPtr address) const;
+
+    struct SymbolicationResult {
+        String library_name;
+        String symbol;
+    };
+    Optional<SymbolicationResult> symbolicate(FlatPtr address) const;
     Optional<FlatPtr> get_instruction_from_source(const String& file, size_t line) const;
     Optional<DebugInfo::SourcePosition> get_source_position(FlatPtr address) const;
     Optional<DebugInfo::VariablesScope> get_containing_function(FlatPtr address) const;

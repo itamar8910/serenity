@@ -159,7 +159,7 @@ int main(int argc, char** argv)
 
         if (new_function) {
             auto function_name = g_debug_session->symbolicate(regs.value().eip);
-            print_function_call(function_name, depth);
+            print_function_call(function_name.value().symbol, depth);
             new_function = false;
             return Debug::DebugSession::ContinueBreakAtSyscall;
         }

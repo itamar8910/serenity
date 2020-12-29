@@ -327,13 +327,10 @@ void DebugSession::update_loaded_libs()
     vm_entries.for_each([&](auto& entry) {
         // TODO: check that region is executable
         auto vm_name = entry.as_object().get("name").as_string();
-        dbgln("vm name: {}", vm_name);
 
         auto object_path = get_path_to_object(vm_name);
         if (!object_path.has_value())
             return IterationDecision::Continue;
-
-        dbgln("object path: {}", object_path.value());
 
         auto lib_name = LexicalPath(object_path.value()).basename();
         if (lib_name == "libgcc_s.so")
@@ -349,7 +346,7 @@ void DebugSession::update_loaded_libs()
         auto debug_info = make<DebugInfo>(make<ELF::Image>(reinterpret_cast<const u8*>(lib_file.data()), lib_file.size()));
 
         FlatPtr base_address = entry.as_object().get("address").as_u32();
-        auto lib = make<LoadedLibrary>(move(lib_name), move(lib_file), move(debug_info), base_address);
+        auto lib = make<LoadedLibrary>(lib_name, move(lib_file), move(debug_info), base_address);
         m_loaded_libraries.set(lib_name, move(lib));
 
         return IterationDecision::Continue;
@@ -369,13 +366,14 @@ const DebugSession::LoadedLibrary* DebugSession::library_at(FlatPtr address) con
     return result;
 }
 
-String DebugSession::symbolicate(FlatPtr address) const
+Optional<DebugSession::SymbolicationResult> DebugSession::symbolicate(FlatPtr address) const
 {
     //FIXME: ELF::Image symlicate() API should return String::empty() if symbol is not found.
     auto* lib = library_at(address);
     if (!lib)
-        return "??";
-    return lib->debug_info->elf().symbolicate(address);
+        return {};
+    auto symbol = lib->debug_info->elf().symbolicate(address - lib->base_address);
+    return { { lib->name, symbol } };
 }
 
 Optional<FlatPtr> DebugSession::get_instruction_from_source(const String& file, size_t line) const
