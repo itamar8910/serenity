@@ -138,20 +138,20 @@ void ClientConnection::handle(const Messages::LanguageServer::AutoCompleteSugges
     dbgln("AutoCompleteSuggestions for: {} {}:{}", message.file_name(), message.cursor_line(), message.cursor_column());
 #endif
 
-    auto document = document_for(message.file_name());
+    auto document = document_for(message.location().file);
     if (!document) {
-        dbgln("file {} has not been opened", message.file_name());
+        dbgln("file {} has not been opened", message.location().file);
         return;
     }
 
     auto& lines = document->lines();
     size_t offset = 0;
 
-    if (message.cursor_line() > 0) {
-        for (auto i = 0; i < message.cursor_line(); ++i)
+    if (message.location().line > 0) {
+        for (size_t i = 0; i < message.location().line; ++i)
             offset += lines[i].length() + 1;
     }
-    offset += message.cursor_column();
+    offset += message.location().column;
 
     auto suggestions = m_autocomplete.get_suggestions(document->text(), offset);
     post_message(Messages::LanguageClient::AutoCompleteSuggestions(move(suggestions)));
