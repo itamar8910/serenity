@@ -161,4 +161,14 @@ void ClientConnection::handle(const Messages::LanguageServer::ListDeclarations& 
     (void)message;
 }
 
+void ClientConnection::handle(const Messages::LanguageServer::ListAllDeclarations&)
+{
+    dbgln_if(CPP_LANGUAGE_SERVER_DEBUG, "ListAllDeclarations");
+    Vector<GUI::AutocompleteProvider::Declaration> all_declarations;
+    m_filedb.for_each_file([this, &all_declarations](const auto& file_name) {
+        all_declarations.append(m_autocomplete_engine->get_available_declarations_including_headers(file_name));
+    });
+    post_message(Messages::LanguageClient::DeclarationList(move(all_declarations)));
+}
+
 }

@@ -11,6 +11,5 @@ endpoint LanguageServer = 8001
     SetAutoCompleteMode(String mode) =|
     FindDeclaration(GUI::AutocompleteProvider::ProjectLocation location) =|
     ListDeclarations(String file_name) =|
-    
-
+    ListAllDeclarations() =|
 }

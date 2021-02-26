@@ -52,7 +52,13 @@ void ServerConnection::handle(const Messages::LanguageClient::DeclarationLocatio
 
 void ServerConnection::handle(const Messages::LanguageClient::DeclarationList& message)
 {
-    (void)message;
+    if (!m_language_client) {
+        dbgln("Language Server connection has no attached language client");
+        return;
+    }
+    for (auto& decl : message.declarations()) {
+        dbgln(decl.name);
+    }
 }
 
 void ServerConnection::die()
@@ -173,8 +179,15 @@ void LanguageClient::declaration_found(const String& file, size_t line, size_t c
         dbgln("on_declaration_found callback is not set");
         return;
     }
-    dbgln("calling on_declaration_found");
     on_declaration_found(file, line, column);
+}
+
+void LanguageClient::get_all_declarations()
+{
+    if (!m_server_connection)
+        return;
+    set_active_client();
+    m_server_connection->post_message(Messages::LanguageServer::ListAllDeclarations());
 }
 
 }

@@ -34,6 +34,7 @@
 #include <AK/OwnPtr.h>
 #include <LibGUI/TextEditor.h>
 #include <LibWeb/Forward.h>
+#include <AK/Assertions.h>
 
 namespace HackStudio {
 
@@ -65,6 +66,8 @@ public:
 
     virtual void undo() override;
     virtual void redo() override;
+
+    LanguageClient& language_client() {VERIFY(m_language_client); return *m_language_client;}
 
 private:
     virtual void focusin_event(GUI::FocusEvent&) override;

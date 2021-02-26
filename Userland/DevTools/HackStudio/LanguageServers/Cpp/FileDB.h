@@ -44,6 +44,9 @@ public:
     String to_absolute_path(const String& file_name) const;
     bool is_open(String file_name) const;
 
+    template<typename Func>
+    void for_each_file(Func func);
+
 private:
     RefPtr<GUI::TextDocument> create_from_filesystem(const String& file_name) const;
     RefPtr<GUI::TextDocument> create_from_fd(int fd) const;
@@ -53,3 +56,11 @@ private:
     HashMap<String, NonnullRefPtr<GUI::TextDocument>> m_open_files;
     String m_project_root;
 };
+
+template<typename Func>
+void FileDB::for_each_file(Func func)
+{
+    for (auto& file : m_open_files.keys()) {
+        func(file);
+    }
+}

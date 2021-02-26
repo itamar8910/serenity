@@ -359,4 +359,15 @@ RefPtr<Declaration> ParserAutoComplete::find_declaration_of(const DocumentData& 
     return {};
 }
 
+Vector<GUI::AutocompleteProvider::Declaration> ParserAutoComplete::get_available_declarations_including_headers(const String& filename)
+{
+    Vector<GUI::AutocompleteProvider::Declaration> declarations;
+    auto document_data = get_or_create_document_data(filename);
+    for(auto& decl :  get_declarations_in_outer_scope_including_headers(document_data))
+    {
+        declarations.append({decl.name(), GUI::AutocompleteProvider::ProjectLocation {decl.filename(), decl.start().line, decl.start().column}});
+    }
+    return declarations;
+}
+
 }

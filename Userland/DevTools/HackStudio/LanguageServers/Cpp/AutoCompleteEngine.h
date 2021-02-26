@@ -43,6 +43,8 @@ public:
     virtual void file_opened([[maybe_unused]] const String& file) {};
 
     virtual Optional<GUI::AutocompleteProvider::ProjectLocation> find_declaration_of(const String&, const GUI::TextPosition&) { return {}; };
+    virtual Vector<GUI::AutocompleteProvider::Declaration> get_all_declarations_in(const String&) {return {};};
+    virtual Vector<GUI::AutocompleteProvider::Declaration> get_available_declarations_including_headers(const String&) {return {};};
 
 protected:
     const FileDB& filedb() const { return m_filedb; }

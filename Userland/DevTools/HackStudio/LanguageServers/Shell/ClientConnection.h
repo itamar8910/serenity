@@ -59,6 +59,7 @@ private:
     virtual void handle(const Messages::LanguageServer::SetAutoCompleteMode&) override { }
     virtual void handle(const Messages::LanguageServer::FindDeclaration&) override {};
     virtual void handle(const Messages::LanguageServer::ListDeclarations&) override {};
+    virtual void handle(const Messages::LanguageServer::ListAllDeclarations&) override { }
 
     RefPtr<GUI::TextDocument> document_for(const String& file_name);
 

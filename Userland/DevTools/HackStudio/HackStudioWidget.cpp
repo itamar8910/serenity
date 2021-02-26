@@ -894,6 +894,8 @@ void HackStudioWidget::create_edit_menubar(GUI::MenuBar& menubar)
         reveal_action_tab(*m_find_in_files_widget);
         m_find_in_files_widget->focus_textbox_and_select_all();
     }));
+    auto search_definitions_action = create_search_in_definitions_action();
+    edit_menu.add_action(search_definitions_action);
 
     edit_menu.add_separator();
 
@@ -987,6 +989,14 @@ NonnullRefPtr<GUI::Action> HackStudioWidget::create_set_autocomplete_mode_action
     });
     action->set_checked(true);
     return action;
+}
+
+NonnullRefPtr<GUI::Action> HackStudioWidget::create_search_in_definitions_action()
+{
+    return GUI::Action::create("Search In Definitions", { Mod_Ctrl | Mod_Shift, Key_K }, [this](auto&) {
+        dbgln("search in definitions");
+        current_editor_wrapper().language_client().get_all_declarations();
+    });
 }
 
 void HackStudioWidget::initialize_menubar(GUI::MenuBar& menubar)

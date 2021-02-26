@@ -98,6 +98,7 @@ private:
     NonnullRefPtr<GUI::Action> create_run_action();
     NonnullRefPtr<GUI::Action> create_stop_action();
     NonnullRefPtr<GUI::Action> create_set_autocomplete_mode_action();
+    NonnullRefPtr<GUI::Action> create_search_in_definitions_action();
 
     void add_new_editor(GUI::Widget& parent);
     NonnullRefPtr<EditorWrapper> get_editor_of_file(const String& file_name);

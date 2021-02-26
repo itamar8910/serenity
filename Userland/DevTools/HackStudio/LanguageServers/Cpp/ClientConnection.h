@@ -59,6 +59,7 @@ private:
     virtual void handle(const Messages::LanguageServer::SetAutoCompleteMode&) override;
     virtual void handle(const Messages::LanguageServer::FindDeclaration&) override;
     virtual void handle(const Messages::LanguageServer::ListDeclarations&) override;
+    virtual void handle(const Messages::LanguageServer::ListAllDeclarations&) override;
 
     FileDB m_filedb;
     OwnPtr<AutoCompleteEngine> m_autocomplete_engine;

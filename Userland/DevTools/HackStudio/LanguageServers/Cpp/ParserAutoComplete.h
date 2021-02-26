@@ -48,6 +48,7 @@ public:
     virtual void on_edit(const String& file) override;
     virtual void file_opened([[maybe_unused]] const String& file) override;
     virtual Optional<GUI::AutocompleteProvider::ProjectLocation> find_declaration_of(const String& file_name, const GUI::TextPosition& identifier_position) override;
+    virtual Vector<GUI::AutocompleteProvider::Declaration> get_available_declarations_including_headers(const String& filename) override;
 
 private:
     struct DocumentData {

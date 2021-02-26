@@ -77,7 +77,7 @@ template<>
 inline bool decode(Decoder& decoder, GUI::AutocompleteProvider::ProjectLocation& location)
 {
     u64 line = 0;
-    u32 column = 0;
+    u64 column = 0;
     if (!decoder.decode(location.file))
         return false;
     if (!decoder.decode(line))
