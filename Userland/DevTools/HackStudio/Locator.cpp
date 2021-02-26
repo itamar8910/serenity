@@ -81,8 +81,25 @@ public:
                 return suggestion.as_symbol_declaration.value().name;
             if (index.column() == Column::Filename)
                 return suggestion.as_symbol_declaration.value().position.file;
-            if (index.column() == Column::Icon) // TODO icons for symbols
-                return GUI::FileIconProvider::icon_for_path(suggestion.as_symbol_declaration.value().position.file);
+            if (index.column() == Column::Icon)
+            {
+                static GUI::Icon struct_icon(Gfx::Bitmap::load_from_file("/res/icons/hackstudio/Struct.png"));
+                static GUI::Icon class_icon(Gfx::Bitmap::load_from_file("/res/icons/hackstudio/Class.png"));
+                static GUI::Icon function_icon(Gfx::Bitmap::load_from_file("/res/icons/hackstudio/Function.png"));
+                static GUI::Icon variable_icon(Gfx::Bitmap::load_from_file("/res/icons/hackstudio/Variable.png"));
+                switch(suggestion.as_symbol_declaration.value().type)
+                {
+                case GUI::AutocompleteProvider::DeclarationType::Struct:
+                    return struct_icon;
+                case GUI::AutocompleteProvider::DeclarationType::Class:
+                    return class_icon;
+                case GUI::AutocompleteProvider::DeclarationType::Function:
+                    return function_icon;
+                case GUI::AutocompleteProvider::DeclarationType::Variable:
+                    return variable_icon;
+                }
+                return {};
+            }
         }
         return {};
     }

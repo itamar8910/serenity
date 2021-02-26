@@ -62,9 +62,18 @@ public:
         size_t column { 0 };
     };
 
+    enum class DeclarationType
+    {
+        Function,
+        Struct,
+        Class,
+        Variable
+    };
+
     struct Declaration {
         String name;
         ProjectLocation position;
+        DeclarationType type;
     };
 
     virtual void provide_completions(Function<void(Vector<Entry>)>) = 0;

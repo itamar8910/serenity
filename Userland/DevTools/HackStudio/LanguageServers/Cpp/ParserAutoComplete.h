@@ -83,6 +83,7 @@ private:
     OwnPtr<DocumentData> create_document_data_for(const String& file);
     String document_path_from_include_path(const StringView& include_path) const;
     void update_declared_symbols(const DocumentData&);
+    GUI::AutocompleteProvider::DeclarationType type_of_declaration(const Declaration&);
 
     HashMap<String, OwnPtr<DocumentData>> m_documents;
 };

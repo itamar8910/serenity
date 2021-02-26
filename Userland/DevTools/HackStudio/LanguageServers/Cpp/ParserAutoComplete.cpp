@@ -369,9 +369,21 @@ void ParserAutoComplete::update_declared_symbols(const DocumentData& document)
     Vector<GUI::AutocompleteProvider::Declaration> declarations;
     for(auto& decl : document.parser.root_node()->declarations())
     {
-        declarations.append({decl.name(), {document.filename, decl.start().line, decl.start().column}});
+        declarations.append({decl.name(), {document.filename, decl.start().line, decl.start().column}, type_of_declaration(decl)});
     }
     set_declarations_of_document(document.filename, move(declarations));
+}
+GUI::AutocompleteProvider::DeclarationType ParserAutoComplete::type_of_declaration(const Declaration& decl)
+{
+    if(decl.is_struct())
+        return GUI::AutocompleteProvider::DeclarationType::Struct;
+    if(decl.is_class())
+        return GUI::AutocompleteProvider::DeclarationType::Class;
+    if(decl.is_function())
+        return GUI::AutocompleteProvider::DeclarationType::Function;
+    if(decl.is_variable_declaration())
+        return GUI::AutocompleteProvider::DeclarationType::Variable;
+    return GUI::AutocompleteProvider::DeclarationType::Variable;
 }
 
 }
