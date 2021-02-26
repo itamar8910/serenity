@@ -40,7 +40,8 @@ ClientConnection::ClientConnection(NonnullRefPtr<Core::LocalSocket> socket, int 
     : IPC::ClientConnection<LanguageClientEndpoint, LanguageServerEndpoint>(*this, move(socket), client_id)
 {
     s_connections.set(client_id, *this);
-    m_autocomplete_engine = make<ParserAutoComplete>(m_filedb);
+    m_autocomplete_engine = make<ParserAutoComplete>(*this, m_filedb);
+    m_autocomplete_engine->set_declarations_of_document_callback = &ClientConnection::set_declarations_of_document_callback;
 }
 
 ClientConnection::~ClientConnection()
@@ -132,9 +133,9 @@ void ClientConnection::handle(const Messages::LanguageServer::SetAutoCompleteMod
     dbgln("SetAutoCompleteMode: {}", message.mode());
 #endif
     if (message.mode() == "Parser")
-        m_autocomplete_engine = make<ParserAutoComplete>(m_filedb);
+        m_autocomplete_engine = make<ParserAutoComplete>(*this, m_filedb);
     else
-        m_autocomplete_engine = make<LexerAutoComplete>(m_filedb);
+        m_autocomplete_engine = make<LexerAutoComplete>(*this, m_filedb);
 }
 
 void ClientConnection::handle(const Messages::LanguageServer::FindDeclaration& message)
@@ -156,19 +157,10 @@ void ClientConnection::handle(const Messages::LanguageServer::FindDeclaration& m
     post_message(Messages::LanguageClient::DeclarationLocation(GUI::AutocompleteProvider::ProjectLocation { location.value().file, location.value().line, location.value().column }));
 }
 
-void ClientConnection::handle(const Messages::LanguageServer::ListDeclarations& message)
+void ClientConnection::set_declarations_of_document_callback(ClientConnection& instance, const String& filename, Vector<GUI::AutocompleteProvider::Declaration>&& declarations)
 {
-    (void)message;
-}
-
-void ClientConnection::handle(const Messages::LanguageServer::ListAllDeclarations&)
-{
-    dbgln_if(CPP_LANGUAGE_SERVER_DEBUG, "ListAllDeclarations");
-    Vector<GUI::AutocompleteProvider::Declaration> all_declarations;
-    m_filedb.for_each_file([this, &all_declarations](const auto& file_name) {
-        all_declarations.append(m_autocomplete_engine->get_available_declarations_including_headers(file_name));
-    });
-    post_message(Messages::LanguageClient::DeclarationList(move(all_declarations)));
+    dbgln("set_declarations_of_document");
+    instance.post_message(Messages::LanguageClient::DeclarationsInDocument(filename, move(declarations)));
 }
 
 }

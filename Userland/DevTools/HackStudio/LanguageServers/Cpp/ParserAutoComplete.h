@@ -35,6 +35,7 @@
 #include <LibCpp/Parser.h>
 #include <LibCpp/Preprocessor.h>
 #include <LibGUI/TextPosition.h>
+#include <AK/Function.h>
 
 namespace LanguageServers::Cpp {
 
@@ -42,17 +43,17 @@ using namespace ::Cpp;
 
 class ParserAutoComplete : public AutoCompleteEngine {
 public:
-    ParserAutoComplete(const FileDB& filedb);
+    ParserAutoComplete(ClientConnection&, const FileDB& filedb);
 
     virtual Vector<GUI::AutocompleteProvider::Entry> get_suggestions(const String& file, const GUI::TextPosition& autocomplete_position) override;
     virtual void on_edit(const String& file) override;
     virtual void file_opened([[maybe_unused]] const String& file) override;
     virtual Optional<GUI::AutocompleteProvider::ProjectLocation> find_declaration_of(const String& file_name, const GUI::TextPosition& identifier_position) override;
-    virtual Vector<GUI::AutocompleteProvider::Declaration> get_available_declarations_including_headers(const String& filename) override;
 
 private:
     struct DocumentData {
         DocumentData(String&& text, const String& filename);
+        String filename;
         String text;
         Preprocessor preprocessor;
         Parser parser;
@@ -81,6 +82,7 @@ private:
 
     OwnPtr<DocumentData> create_document_data_for(const String& file);
     String document_path_from_include_path(const StringView& include_path) const;
+    void update_declared_symbols(const DocumentData&);
 
     HashMap<String, OwnPtr<DocumentData>> m_documents;
 };

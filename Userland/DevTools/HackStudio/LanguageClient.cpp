@@ -25,6 +25,8 @@
  */
 
 #include "LanguageClient.h"
+#include "Locator.h"
+#include "HackStudio.h"
 #include <AK/String.h>
 #include <AK/Vector.h>
 #include <DevTools/HackStudio/LanguageServers/LanguageServerEndpoint.h>
@@ -48,17 +50,6 @@ void ServerConnection::handle(const Messages::LanguageClient::DeclarationLocatio
         return;
     }
     m_language_client->declaration_found(message.location().file, message.location().line, message.location().column);
-}
-
-void ServerConnection::handle(const Messages::LanguageClient::DeclarationList& message)
-{
-    if (!m_language_client) {
-        dbgln("Language Server connection has no attached language client");
-        return;
-    }
-    for (auto& decl : message.declarations()) {
-        dbgln(decl.name);
-    }
 }
 
 void ServerConnection::die()
@@ -164,6 +155,16 @@ void ServerConnection::remove_instance_for_project(const String& project_path)
     auto key = LexicalPath { project_path }.string();
     s_instances_for_projects.remove(key);
 }
+void ServerConnection::handle(const Messages::LanguageClient::DeclarationsInDocument& message)
+{
+    dbgln("declarations in: {}", message.filename());
+    for(auto& decl : message.declarations())
+    {
+        dbgln("{}: {}", decl.name, decl.position.file);
+    }
+    locator().set_declared_symbols(message.filename(), message.declarations());
+
+}
 
 void LanguageClient::search_declaration(const String& path, size_t line, size_t column)
 {
@@ -180,14 +181,6 @@ void LanguageClient::declaration_found(const String& file, size_t line, size_t c
         return;
     }
     on_declaration_found(file, line, column);
-}
-
-void LanguageClient::get_all_declarations()
-{
-    if (!m_server_connection)
-        return;
-    set_active_client();
-    m_server_connection->post_message(Messages::LanguageServer::ListAllDeclarations());
 }
 
 }

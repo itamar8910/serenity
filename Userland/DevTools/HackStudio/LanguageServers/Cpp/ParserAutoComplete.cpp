@@ -25,6 +25,7 @@
  */
 
 #include "ParserAutoComplete.h"
+#include <DevTools/HackStudio/LanguageServers/Cpp/ClientConnection.h>
 #include <AK/Assertions.h>
 #include <AK/HashTable.h>
 #include <LibCpp/AST.h>
@@ -35,8 +36,8 @@
 
 namespace LanguageServers::Cpp {
 
-ParserAutoComplete::ParserAutoComplete(const FileDB& filedb)
-    : AutoCompleteEngine(filedb)
+ParserAutoComplete::ParserAutoComplete(ClientConnection& connection, const FileDB& filedb)
+    : AutoCompleteEngine(connection, filedb)
 {
 }
 
@@ -70,6 +71,9 @@ OwnPtr<ParserAutoComplete::DocumentData> ParserAutoComplete::create_document_dat
 #ifdef CPP_LANGUAGE_SERVER_DEBUG
     root->dump(0);
 #endif
+
+    update_declared_symbols(*document_data);
+
     return move(document_data);
 }
 
@@ -78,8 +82,9 @@ void ParserAutoComplete::set_document_data(const String& file, OwnPtr<DocumentDa
     m_documents.set(filedb().to_absolute_path(file), move(data));
 }
 
-ParserAutoComplete::DocumentData::DocumentData(String&& _text, const String& filename)
-    : text(move(_text))
+ParserAutoComplete::DocumentData::DocumentData(String&& _text, const String& _filename)
+    : filename(_filename)
+    , text(move(_text))
     , preprocessor(text.view())
     , parser(preprocessor.process().view(), filename)
 {
@@ -359,15 +364,14 @@ RefPtr<Declaration> ParserAutoComplete::find_declaration_of(const DocumentData& 
     return {};
 }
 
-Vector<GUI::AutocompleteProvider::Declaration> ParserAutoComplete::get_available_declarations_including_headers(const String& filename)
+void ParserAutoComplete::update_declared_symbols(const DocumentData& document)
 {
     Vector<GUI::AutocompleteProvider::Declaration> declarations;
-    auto document_data = get_or_create_document_data(filename);
-    for(auto& decl :  get_declarations_in_outer_scope_including_headers(document_data))
+    for(auto& decl : document.parser.root_node()->declarations())
     {
-        declarations.append({decl.name(), GUI::AutocompleteProvider::ProjectLocation {decl.filename(), decl.start().line, decl.start().column}});
+        declarations.append({decl.name(), {document.filename, decl.start().line, decl.start().column}});
     }
-    return declarations;
+    set_declarations_of_document(document.filename, move(declarations));
 }
 
 }

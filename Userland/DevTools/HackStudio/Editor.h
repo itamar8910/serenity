@@ -68,6 +68,7 @@ public:
     virtual void redo() override;
 
     LanguageClient& language_client() {VERIFY(m_language_client); return *m_language_client;}
+    virtual void set_cursor(const GUI::TextPosition& a_position) override;
 
 private:
     virtual void focusin_event(GUI::FocusEvent&) override;
@@ -82,7 +83,6 @@ private:
     void navigate_to_include_if_available(String);
     void on_navigatable_link_click(const GUI::TextDocumentSpan&);
     void on_identifier_click(const GUI::TextDocumentSpan&);
-    void open_and_set_cursor(const String& file, size_t line, size_t column);
 
     Gfx::IntRect breakpoint_icon_rect(size_t line_number) const;
     static const Gfx::Bitmap& breakpoint_icon_bitmap();

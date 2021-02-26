@@ -2,5 +2,5 @@ endpoint LanguageClient = 8002
 {
     AutoCompleteSuggestions(Vector<GUI::AutocompleteProvider::Entry> suggestions) =|
     DeclarationLocation(GUI::AutocompleteProvider::ProjectLocation location) =|
-    DeclarationList(Vector<GUI::AutocompleteProvider::Declaration> declarations) =|
+    DeclarationsInDocument(String filename, Vector<GUI::AutocompleteProvider::Declaration> declarations) =|
 }

@@ -91,7 +91,7 @@ public:
 protected:
     virtual void handle(const Messages::LanguageClient::AutoCompleteSuggestions&) override;
     virtual void handle(const Messages::LanguageClient::DeclarationLocation&) override;
-    virtual void handle(const Messages::LanguageClient::DeclarationList&) override;
+    virtual void handle(const Messages::LanguageClient::DeclarationsInDocument&) override;
 
     String m_project_path;
     WeakPtr<LanguageClient> m_language_client;
@@ -126,7 +126,6 @@ public:
     virtual void request_autocomplete(const String& path, size_t cursor_line, size_t cursor_column);
     virtual void set_autocomplete_mode(const String& mode);
     virtual void search_declaration(const String& path, size_t line, size_t column);
-    virtual void get_all_declarations();
 
     void provide_autocomplete_suggestions(const Vector<GUI::AutocompleteProvider::Entry>&);
     void declaration_found(const String& file, size_t line, size_t column);
