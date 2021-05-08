@@ -9,6 +9,7 @@
 #include <AK/Assertions.h>
 #include <AK/Atomic.h>
 #include <AK/Format.h>
+#include <AK/Traits.h>
 #include <AK/Types.h>
 #ifdef KERNEL
 #    include <Kernel/Arch/x86/CPU.h>
@@ -337,7 +338,7 @@ inline void swap(NonnullRefPtr<T>& a, NonnullRefPtr<U>& b)
 
 template<typename T>
 struct Traits<NonnullRefPtr<T>> : public GenericTraits<NonnullRefPtr<T>> {
-    using PeekType = const T*;
+    using PeekType = T*;
     static unsigned hash(const NonnullRefPtr<T>& p) { return ptr_hash(p.ptr()); }
     static bool equals(const NonnullRefPtr<T>& a, const NonnullRefPtr<T>& b) { return a.ptr() == b.ptr(); }
 };
