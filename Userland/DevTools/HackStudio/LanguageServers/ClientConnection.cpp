@@ -10,6 +10,8 @@
 #include <LibCore/File.h>
 #include <LibGUI/TextDocument.h>
 
+#undef LANGUAGE_SERVER_DEBUG
+#define LANGUAGE_SERVER_DEBUG 1
 namespace LanguageServers {
 
 static HashMap<int, RefPtr<ClientConnection>> s_connections;
@@ -116,6 +118,31 @@ void ClientConnection::find_declaration(GUI::AutocompleteProvider::ProjectLocati
 
     dbgln_if(LANGUAGE_SERVER_DEBUG, "declaration location: {} {}:{}", decl_location.value().file, decl_location.value().line, decl_location.value().column);
     async_declaration_location(GUI::AutocompleteProvider::ProjectLocation { decl_location.value().file, decl_location.value().line, decl_location.value().column });
+}
+
+void ClientConnection::get_function_parameters(GUI::AutocompleteProvider::ProjectLocation const& location)
+{
+    dbgln_if(LANGUAGE_SERVER_DEBUG, "GetFunctionParams: {} {}:{}", location.file, location.line, location.column);
+    auto document = m_filedb.get(location.file);
+    if (!document) {
+        dbgln("file {} has not been opened", location.file);
+        return;
+    }
+
+    GUI::TextPosition identifier_position = { (size_t)location.line, (size_t)location.column };
+    auto params = m_autocomplete_engine->get_function_params(location.file, identifier_position);
+    if (!params.has_value()) {
+        dbgln("could not get function parameters");
+        return;
+    }
+
+    for (auto& param : params->params) {
+        dbgln_if(LANGUAGE_SERVER_DEBUG, param);
+    }
+    dbgln_if(LANGUAGE_SERVER_DEBUG, "Current parameter index: {}", params->current_index);
+
+    async_function_parameters(params->params, params->current_index);
+
 }
 
 }

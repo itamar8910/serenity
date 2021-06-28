@@ -33,6 +33,11 @@ void ServerConnection::declaration_location(const GUI::AutocompleteProvider::Pro
     m_current_language_client->declaration_found(location.file, location.line, location.column);
 }
 
+void ServerConnection::function_parameters(Vector<String> const&, int)
+{
+    TODO();
+}
+
 void ServerConnection::die()
 {
     VERIFY(m_wrapper);
@@ -110,6 +115,14 @@ void LanguageClient::search_declaration(const String& path, size_t line, size_t 
         return;
     set_active_client();
     m_connection_wrapper.connection()->async_find_declaration(GUI::AutocompleteProvider::ProjectLocation { path, line, column });
+}
+
+void LanguageClient::get_function_parameters(const String& path, size_t line, size_t column)
+{
+    if (!m_connection_wrapper.connection())
+        return;
+    set_active_client();
+    m_connection_wrapper.connection()->async_get_function_parameters(GUI::AutocompleteProvider::ProjectLocation { path, line, column });
 }
 
 void LanguageClient::declaration_found(const String& file, size_t line, size_t column) const

@@ -48,6 +48,7 @@ protected:
     virtual void declaration_location(GUI::AutocompleteProvider::ProjectLocation const&) override;
     virtual void declarations_in_document(String const&, Vector<GUI::AutocompleteProvider::Declaration> const&) override;
     virtual void todo_entries_in_document(String const&, Vector<Cpp::Parser::TodoEntry> const&) override;
+    virtual void function_parameters(Vector<String> const&, int index) override;
     void set_wrapper(ServerConnectionWrapper& wrapper) { m_wrapper = &wrapper; }
 
     String m_project_path;
@@ -129,6 +130,7 @@ public:
     virtual void remove_text(const String& path, size_t from_line, size_t from_column, size_t to_line, size_t to_column);
     virtual void request_autocomplete(const String& path, size_t cursor_line, size_t cursor_column);
     virtual void search_declaration(const String& path, size_t line, size_t column);
+    virtual void get_function_parameters(const String& path, size_t line, size_t column);
 
     void provide_autocomplete_suggestions(const Vector<GUI::AutocompleteProvider::Entry>&) const;
     void declaration_found(const String& file, size_t line, size_t column) const;

@@ -62,6 +62,7 @@ private:
     virtual void drop_event(GUI::DropEvent&) override;
     virtual void enter_event(Core::Event&) override;
     virtual void leave_event(Core::Event&) override;
+    virtual void keydown_event(GUI::KeyEvent&) override;
 
     void show_documentation_tooltip_if_available(const String&, const Gfx::IntPoint& screen_location);
     void navigate_to_include_if_available(String);

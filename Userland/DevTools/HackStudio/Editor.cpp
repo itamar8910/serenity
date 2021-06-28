@@ -606,4 +606,17 @@ void Editor::set_language_client_for(const CodeDocument& document)
         m_language_client = get_language_client<LanguageClients::Shell::ServerConnection>(project().root_path());
 }
 
+void Editor::keydown_event(GUI::KeyEvent& event)
+{
+    if (!event.shift() && !event.alt() && event.ctrl() && event.key() == KeyCode::Key_P) {
+
+
+        m_language_client->get_function_parameters(
+            code_document().file_path(),
+            cursor().line(),
+            cursor().column());
+        dbgln("Ctrl+P");
+    }
+}
+
 }

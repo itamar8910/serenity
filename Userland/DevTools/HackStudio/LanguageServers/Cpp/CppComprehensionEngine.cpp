@@ -726,4 +726,11 @@ bool CppComprehensionEngine::is_symbol_available(const Symbol& symbol, const Vec
     return true;
 }
 
+Optional<CodeComprehensionEngine::FunctionParams> CppComprehensionEngine::get_function_params(const String&, const GUI::TextPosition&)
+{
+        TODO();
+//    return CodeComprehensionEngine::get_function_params(<unnamed>, <unnamed>);
+}
+
+
 }

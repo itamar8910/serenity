@@ -29,6 +29,7 @@ public:
     virtual void on_edit(const String& file) override;
     virtual void file_opened([[maybe_unused]] const String& file) override;
     virtual Optional<GUI::AutocompleteProvider::ProjectLocation> find_declaration_of(const String& filename, const GUI::TextPosition& identifier_position) override;
+    virtual Optional<FunctionParams> get_function_params(const String&, const GUI::TextPosition&) override;
 
 private:
     struct SymbolName {
@@ -171,7 +172,6 @@ void CppComprehensionEngine::for_each_included_document_recursive(const Document
             continue;
     }
 }
-
 }
 
 namespace AK {
