@@ -746,8 +746,6 @@ Optional<CodeComprehensionEngine::FunctionParamsHint> CppComprehensionEngine::ge
 
     if (node->is_function_call()) {
         auto& call_node = ((FunctionCall&)*node);
-//        if (!call_node.m_arguments.is_empty())
-//            return {};
 
         auto token = document.parser().token_at(cpp_position);
         if (!token.has_value()) {
@@ -824,13 +822,17 @@ Optional<CppComprehensionEngine::FunctionParamsHint> CppComprehensionEngine::get
         return {};
     }
 
-    FunctionDeclaration& func_decl = (FunctionDeclaration&)*decl;
+    auto& func_decl = (FunctionDeclaration&)*decl;
     auto document_of_declaration = get_document_data(func_decl.filename());
 
     FunctionParamsHint hint {};
     hint.current_index = argument_index;
     for (auto& arg : func_decl.m_parameters) {
-        hint.params.append(document_of_declaration->parser().text_of_node(arg));
+        Vector<StringView> tokens_text;
+        for(auto token : document_of_declaration->parser().tokens_in_range(arg.start(), arg.end())) {
+            tokens_text.append(token.text());
+        }
+        hint.params.append(String::join(" ", tokens_text));
     }
 
     return hint;
