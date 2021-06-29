@@ -33,9 +33,12 @@ void ServerConnection::declaration_location(const GUI::AutocompleteProvider::Pro
     m_current_language_client->declaration_found(location.file, location.line, location.column);
 }
 
-void ServerConnection::function_parameters(Vector<String> const&, int)
+void ServerConnection::function_parameters(Vector<String> const& params, int argument_index)
 {
-    TODO();
+   for(auto& param : params)
+       dbgln("{}", param);
+
+   dbgln("arg index: {}", argument_index);
 }
 
 void ServerConnection::die()

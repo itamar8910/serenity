@@ -130,7 +130,7 @@ void ClientConnection::get_function_parameters(GUI::AutocompleteProvider::Projec
     }
 
     GUI::TextPosition identifier_position = { (size_t)location.line, (size_t)location.column };
-    auto params = m_autocomplete_engine->get_function_params(location.file, identifier_position);
+    auto params = m_autocomplete_engine->get_function_params_hint(location.file, identifier_position);
     if (!params.has_value()) {
         dbgln("could not get function parameters");
         return;

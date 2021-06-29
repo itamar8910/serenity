@@ -28,12 +28,12 @@ public:
 
     virtual Optional<GUI::AutocompleteProvider::ProjectLocation> find_declaration_of(const String&, const GUI::TextPosition&) { return {}; }
 
-    struct FunctionParams
+    struct FunctionParamsHint
     {
         Vector<String> params;
         size_t current_index {0};
     };
-    virtual Optional<FunctionParams> get_function_params(const String&, const GUI::TextPosition&) { return {}; }
+    virtual Optional<FunctionParamsHint> get_function_params_hint(const String&, const GUI::TextPosition&) { return {}; }
 
 public:
     Function<void(const String&, Vector<GUI::AutocompleteProvider::Declaration>&&)> set_declarations_of_document_callback;

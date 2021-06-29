@@ -608,6 +608,7 @@ void Editor::set_language_client_for(const CodeDocument& document)
 
 void Editor::keydown_event(GUI::KeyEvent& event)
 {
+    TextEditor::keydown_event(event);
     if (!event.shift() && !event.alt() && event.ctrl() && event.key() == KeyCode::Key_P) {
 
 
