@@ -40,6 +40,7 @@
 #include <LibWeb/HTML/SyntaxHighlighter/SyntaxHighlighter.h>
 #include <LibWeb/OutOfProcessWebView.h>
 #include <Shell/SyntaxHighlighter.h>
+#include <fcntl.h>
 
 namespace TextEditor {
 
@@ -301,15 +302,24 @@ MainWidget::MainWidget()
 
     m_save_action = GUI::CommonActions::make_save_action([&](auto&) {
         if (!m_path.is_empty()) {
-            auto response = m_file_system_access_client->request_file(m_path, Core::OpenMode::Truncate | Core::OpenMode::WriteOnly);
+            int fd = 0;
+            if (access(m_path.characters(), W_OK) == 0) {
+                fd = ::open(m_path.characters(), O_WRONLY | O_TRUNC);
+                if (fd < 0) {
+                    perror("open");
+                    return;
+                }
+            } else {
+                auto response = m_file_system_access_client->request_file(m_path, Core::OpenMode::Truncate | Core::OpenMode::WriteOnly);
 
-            if (response.error() != 0) {
-                if (response.error() != -1)
-                    GUI::MessageBox::show_error(window(), String::formatted("Unable to save file: {}", strerror(response.error())));
-                return;
+                if (response.error() != 0) {
+                    if (response.error() != -1)
+                        GUI::MessageBox::show_error(window(), String::formatted("Unable to save file: {}", strerror(response.error())));
+                    return;
+                }
+
+                fd = response.fd()->take_fd();
             }
-
-            int fd = response.fd()->take_fd();
 
             if (!m_editor->write_to_file_and_close(fd)) {
                 GUI::MessageBox::show(window(), "Unable to save file.\n", "Error", GUI::MessageBox::Type::Error);
