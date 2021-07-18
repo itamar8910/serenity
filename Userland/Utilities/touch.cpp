@@ -5,29 +5,9 @@
  */
 
 #include <LibCore/ArgsParser.h>
-#include <errno.h>
-#include <fcntl.h>
+#include <LibCore/File.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 #include <unistd.h>
-#include <utime.h>
-
-static bool file_exists(const char* path)
-{
-    struct stat st;
-    int rc = stat(path, &st);
-    if (rc < 0) {
-        if (errno == ENOENT)
-            return false;
-    }
-    if (rc == 0) {
-        return true;
-    }
-    perror("stat");
-    exit(1);
-}
 
 int main(int argc, char** argv)
 {
@@ -44,22 +24,8 @@ int main(int argc, char** argv)
     args_parser.parse(argc, argv);
 
     for (auto path : paths) {
-        if (file_exists(path)) {
-            int rc = utime(path, nullptr);
-            if (rc < 0)
-                perror("utime");
-        } else {
-            int fd = open(path, O_CREAT, 0100644);
-            if (fd < 0) {
-                perror("open");
-                return 1;
-            }
-            int rc = close(fd);
-            if (rc < 0) {
-                perror("close");
-                return 1;
-            }
-        }
+        if (!Core::File::touch(path))
+            warnln("cannot touch {}", path);
     }
     return 0;
 }
