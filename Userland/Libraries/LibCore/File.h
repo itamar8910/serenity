@@ -71,6 +71,7 @@ public:
         OSError error_code;
     };
     static Result<void, RemoveError> remove(String const& path, RecursionMode, bool force);
+    static bool touch(String const& path);
 
     virtual bool open(OpenMode) override;
 

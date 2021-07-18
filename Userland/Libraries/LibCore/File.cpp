@@ -18,6 +18,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <utime.h>
 
 // On Linux distros that use glibc `basename` is defined as a macro that expands to `__xpg_basename`, so we undefine it
 #if defined(__linux__) && defined(basename)
@@ -506,6 +507,30 @@ Result<void, File::RemoveError> File::remove(String const& path, RecursionMode m
     }
 
     return {};
+}
+
+bool File::touch(String const& path)
+{
+    if (File::exists(path)) {
+        if (::utime(path.characters(), nullptr) < 0) {
+            perror("utime");
+            return false;
+        }
+        return true;
+    }
+
+    int fd = ::open(path.characters(), O_CREAT, 0100644);
+    if (fd < 0) {
+        perror("open");
+        return false;
+    }
+
+    if (::close(fd) < 0) {
+        perror("close");
+        return false;
+    }
+
+    return true;
 }
 
 }
