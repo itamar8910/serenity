@@ -36,7 +36,13 @@ int main(int argc, char** argv)
     if (file_to_edit) {
         FileArgument parsed_argument(file_to_edit);
 
+        if (!Core::File::exists(parsed_argument.filename())) {
+            auto rc = Core::File::touch(parsed_argument.filename());
+            VERIFY(rc);
+        }
+
         file_to_edit_full_path = Core::File::real_path_for(parsed_argument.filename());
+        VERIFY(!file_to_edit_full_path.is_null());
         dbgln("unveil for: {}", file_to_edit_full_path);
         if (unveil(file_to_edit_full_path.characters(), "rwc") < 0) {
             perror("unveil");
