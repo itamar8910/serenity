@@ -212,6 +212,7 @@ public:
     virtual String action_text() const override;
     const String& text() const { return m_text; }
     const TextRange& range() const { return m_range; }
+    virtual bool is_insert_text_command() const override { return true; }
 
 private:
     String m_text;
@@ -226,10 +227,16 @@ public:
     const TextRange& range() const { return m_range; }
     virtual bool merge_with(GUI::Command const&) override;
     virtual String action_text() const override;
+    virtual bool is_remove_text_command() const override { return true; }
 
 private:
     String m_text;
     TextRange m_range;
 };
+
+template<>
+inline bool Command::fast_is<InsertTextCommand>() const { return is_insert_text_command(); }
+template<>
+inline bool Command::fast_is<RemoveTextCommand>() const { return is_remove_text_command(); }
 
 }

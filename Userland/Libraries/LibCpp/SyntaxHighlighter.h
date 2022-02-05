@@ -10,7 +10,12 @@
 
 namespace Cpp {
 
+// TODO: Add another syntax highlighter named SemanticSyntaxHighlighter (no need for a baseclass rn)
+
+class SemanticSyntaxHighlighter;
+
 class SyntaxHighlighter final : public Syntax::Highlighter {
+    friend SemanticSyntaxHighlighter;
 public:
     SyntaxHighlighter() { }
     virtual ~SyntaxHighlighter() override;

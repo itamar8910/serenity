@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2018-2021, Andreas Kling <kling@serenityos.org>
+ * Copyright (c) 2020-2022, Itamar S. <itamar8910@gmail.com>
  * Copyright (c) 2018-2021, the SerenityOS developers.
  *
  * SPDX-License-Identifier: BSD-2-Clause
@@ -46,6 +47,8 @@ public:
 
     virtual void set_document(GUI::TextDocument&) override;
     virtual void will_execute(GUI::TextDocumentUndoCommand const&) override;
+    virtual void command_executed(GUI::TextDocumentUndoCommand const&) override;
+
 
     virtual void undo() override;
     virtual void redo() override;
@@ -101,6 +104,9 @@ private:
     void set_language_client_for(const CodeDocument&);
     void set_autocomplete_provider_for(CodeDocument const&);
     void handle_function_parameters_hint_request();
+    void on_token_info_timer_tick();
+    void on_tokens_info_result(Vector<GUI::AutocompleteProvider::TokenInfo> const& tokens_info);
+    void create_tokens_info_timer();
 
     explicit Editor();
 
@@ -115,6 +121,7 @@ private:
     bool m_autocomplete_in_focus { false };
     RefPtr<GUI::Action> m_evaluate_expression_action;
     RefPtr<GUI::Action> m_move_execution_to_line_action;
+    RefPtr<Core::Timer> m_tokens_info_timer; // Used for querying language server for syntax highlighting info
 
     OwnPtr<LanguageClient> m_language_client;
     ErrorOr<void> initialize_documentation_tooltip();

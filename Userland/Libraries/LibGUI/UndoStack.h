@@ -15,12 +15,16 @@ namespace GUI {
 
 class UndoStack {
 public:
-    UndoStack();
-    ~UndoStack();
+    UndoStack() = default;
+    ~UndoStack() = default;
 
     void push(NonnullOwnPtr<Command>);
 
-    bool can_undo() const;
+    bool can_undo() const
+    {
+        return m_stack_index > 0;
+    }
+
     bool can_redo() const;
 
     void undo();

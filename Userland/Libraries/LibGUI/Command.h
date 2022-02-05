@@ -12,13 +12,18 @@ namespace GUI {
 
 class Command {
 public:
-    virtual ~Command();
+    virtual ~Command() = default;
 
     virtual void undo() { }
     virtual void redo() { }
 
     virtual String action_text() const { return {}; }
     virtual bool merge_with(Command const&) { return false; }
+    virtual bool is_insert_text_command() const { return false; }
+    virtual bool is_remove_text_command() const { return false; }
+
+    template<typename T>
+    bool fast_is() const = delete;
 
 protected:
     Command() { }

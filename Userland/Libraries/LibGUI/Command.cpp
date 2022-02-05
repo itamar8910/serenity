@@ -7,9 +7,5 @@
 #include <LibGUI/Command.h>
 
 namespace GUI {
-
-Command::~Command()
-{
-}
-
+// TODO: remove this file
 }

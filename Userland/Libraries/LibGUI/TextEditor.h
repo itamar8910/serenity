@@ -175,6 +175,7 @@ public:
     void set_cursor(size_t line, size_t column);
     virtual void set_cursor(TextPosition const&);
 
+    Syntax::Highlighter* syntax_highlighter();
     Syntax::Highlighter const* syntax_highlighter() const;
     void set_syntax_highlighter(OwnPtr<Syntax::Highlighter>);
 
@@ -209,6 +210,7 @@ public:
 
     bool text_is_secret() const { return m_text_is_secret; }
     void set_text_is_secret(bool text_is_secret);
+    void force_rehighlight();
 
 protected:
     explicit TextEditor(Type = Type::MultiLine);
@@ -328,10 +330,12 @@ private:
         command->perform_formatting(*this);
         will_execute(*command);
         command->execute_from(*this);
+        command_executed(*command);
         m_document->add_to_undo_stack(move(command));
     }
 
     virtual void will_execute(TextDocumentUndoCommand const&) { }
+    virtual void command_executed(TextDocumentUndoCommand const&) { }
 
     Type m_type { MultiLine };
     Mode m_mode { Editable };

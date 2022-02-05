@@ -16,6 +16,8 @@
 #include <AK/LexicalPath.h>
 #include <LibCore/DirIterator.h>
 #include <LibCore/File.h>
+#include <LibCore/Timer.h>
+#include <LibCpp/SemanticSyntaxHighlighter.h>
 #include <LibCpp/SyntaxHighlighter.h>
 #include <LibGUI/Action.h>
 #include <LibGUI/Application.h>
@@ -51,6 +53,8 @@ ErrorOr<NonnullRefPtr<Editor>> Editor::try_create()
 
 Editor::Editor()
 {
+    create_tokens_info_timer();
+
     set_document(CodeDocument::create());
     m_evaluate_expression_action = GUI::Action::create("Evaluate expression", { Mod_Ctrl, Key_E }, [this](auto&) {
         VERIFY(is_program_running());
@@ -496,6 +500,9 @@ void Editor::set_document(GUI::TextDocument& doc)
     } else {
         set_autocomplete_provider_for(code_document);
     }
+
+    on_token_info_timer_tick();
+    m_tokens_info_timer->restart();
 }
 
 Optional<Editor::AutoCompleteRequestData> Editor::get_autocomplete_request_data()
@@ -523,6 +530,34 @@ void Editor::LanguageServerAidedAutocompleteProvider::provide_completions(Functi
         data.value().position.column());
 }
 
+void Editor::command_executed(GUI::TextDocumentUndoCommand const& command)
+{
+    auto highlighter = syntax_highlighter();
+    if (!highlighter || !highlighter->is_cpp_semantic_highlighter())
+        return;
+
+    auto& semantic_cpp_highlighter = verify_cast<Cpp::SemanticSyntaxHighlighter>(*highlighter);
+
+    Optional<GUI::TextRange> edited_range;
+    Cpp::SemanticSyntaxHighlighter::EditType edit_type {};
+
+    if (is<GUI::InsertTextCommand>(command)) {
+        auto const& insert_command = static_cast<GUI::InsertTextCommand const&>(command);
+        edited_range = insert_command.range();
+        edit_type = Cpp::SemanticSyntaxHighlighter::EditType::Insert;
+    }
+
+    if (is<GUI::RemoveTextCommand>(command)) {
+        auto const& remove_command = static_cast<GUI::RemoveTextCommand const&>(command);
+        edited_range = remove_command.range();
+        edit_type = Cpp::SemanticSyntaxHighlighter::EditType::Remove;
+    }
+    if (!edited_range.has_value())
+        return;
+
+    semantic_cpp_highlighter.set_last_edited_range(*edited_range, edit_type);
+}
+
 void Editor::will_execute(GUI::TextDocumentUndoCommand const& command)
 {
     if (!m_language_client)
@@ -530,6 +565,7 @@ void Editor::will_execute(GUI::TextDocumentUndoCommand const& command)
 
     if (is<GUI::InsertTextCommand>(command)) {
         auto const& insert_command = static_cast<GUI::InsertTextCommand const&>(command);
+        //        dbgln("InsertCommand: {}, {}", insert_command.range().start(), insert_command.text());
         m_language_client->insert_text(
             code_document().file_path(),
             insert_command.text(),
@@ -540,6 +576,7 @@ void Editor::will_execute(GUI::TextDocumentUndoCommand const& command)
 
     if (is<GUI::RemoveTextCommand>(command)) {
         auto const& remove_command = static_cast<GUI::RemoveTextCommand const&>(command);
+        //        dbgln("RemoveCommand: {}, {}", remove_command.range().start(), remove_command.range().end());
         m_language_client->remove_text(
             code_document().file_path(),
             remove_command.range().start().line(),
@@ -602,7 +639,8 @@ void Editor::set_syntax_highlighter_for(const CodeDocument& document)
 {
     switch (document.language()) {
     case Language::Cpp:
-        set_syntax_highlighter(make<Cpp::SyntaxHighlighter>());
+        //        set_syntax_highlighter(make<Cpp::SyntaxHighlighter>());
+        set_syntax_highlighter(make<Cpp::SemanticSyntaxHighlighter>());
         break;
     case Language::CSS:
         set_syntax_highlighter(make<Web::CSS::SyntaxHighlighter>());
@@ -654,6 +692,12 @@ void Editor::set_language_client_for(const CodeDocument& document)
 
     if (document.language() == Language::Shell)
         m_language_client = get_language_client<LanguageClients::Shell::ServerConnection>(project().root_path());
+
+    if (m_language_client) {
+        m_language_client->on_tokens_info_result = [this](Vector<GUI::AutocompleteProvider::TokenInfo> const& tokens_info) {
+            on_tokens_info_result(tokens_info);
+        };
+    }
 }
 
 void Editor::keydown_event(GUI::KeyEvent& event)
@@ -665,6 +709,8 @@ void Editor::keydown_event(GUI::KeyEvent& event)
     if (!event.shift() && !event.alt() && event.ctrl() && event.key() == KeyCode::Key_P) {
         handle_function_parameters_hint_request();
     }
+
+    m_tokens_info_timer->restart();
 }
 
 void Editor::handle_function_parameters_hint_request()
@@ -709,6 +755,34 @@ void Editor::set_debug_mode(bool enabled)
 {
     m_evaluate_expression_action->set_enabled(enabled);
     m_move_execution_to_line_action->set_enabled(enabled);
+}
+
+void Editor::on_token_info_timer_tick()
+{
+    if (!m_language_client || !m_language_client->is_active_client())
+        return;
+
+    m_language_client->get_tokens_info(code_document().file_path());
+}
+
+void Editor::on_tokens_info_result(Vector<GUI::AutocompleteProvider::TokenInfo> const& tokens_info)
+{
+    auto highlighter = syntax_highlighter();
+    if (highlighter && highlighter->is_cpp_semantic_highlighter()) {
+        auto& semantic_cpp_highlighter = verify_cast<Cpp::SemanticSyntaxHighlighter>(*highlighter);
+        semantic_cpp_highlighter.update_tokens_info(tokens_info);
+        force_rehighlight();
+    }
+}
+
+void Editor::create_tokens_info_timer()
+{
+    static constexpr size_t token_info_timer_interval_ms = 1000;
+    m_tokens_info_timer = Core::Timer::create_repeating((int)token_info_timer_interval_ms, [this] {
+        on_token_info_timer_tick();
+        m_tokens_info_timer->stop();
+    });
+    m_tokens_info_timer->start();
 }
 
 }

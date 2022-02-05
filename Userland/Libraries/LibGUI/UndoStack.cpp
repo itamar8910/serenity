@@ -9,19 +9,6 @@
 
 namespace GUI {
 
-UndoStack::UndoStack()
-{
-}
-
-UndoStack::~UndoStack()
-{
-}
-
-bool UndoStack::can_undo() const
-{
-    return m_stack_index > 0;
-}
-
 bool UndoStack::can_redo() const
 {
     if (m_stack.is_empty())
