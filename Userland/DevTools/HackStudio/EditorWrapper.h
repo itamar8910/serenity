@@ -8,6 +8,7 @@
 #pragma once
 
 #include "Debugger/BreakpointCallback.h"
+#include "FindWindow.h"
 #include "Git/GitRepo.h"
 #include "LanguageClient.h"
 #include <AK/Function.h>
@@ -52,6 +53,8 @@ public:
     Function<void()> on_change;
     Function<void(EditorWrapper&)> on_tab_close_request;
 
+    void show_find_window();
+
 private:
     static constexpr auto untitled_label = "(Untitled)";
 
@@ -62,6 +65,7 @@ private:
     String m_filename;
     String m_filename_title;
     RefPtr<Editor> m_editor;
+    RefPtr<FindWindow> m_find_window;
 
     Optional<String> m_project_root;
     RefPtr<GitRepo> m_git_repo;

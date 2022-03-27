@@ -39,6 +39,8 @@ EditorWrapper::EditorWrapper()
     m_editor->on_modified_change = [this](bool) {
         update_title();
     };
+
+    m_find_window = FindWindow::create(*this, *m_editor);
 }
 
 LanguageClient& EditorWrapper::language_client() { return m_editor->language_client(); }
@@ -113,6 +115,11 @@ void EditorWrapper::update_title()
 void EditorWrapper::set_debug_mode(bool enabled)
 {
     m_editor->set_debug_mode(enabled);
+}
+
+void EditorWrapper::show_find_window()
+{
+    m_find_window->show();
 }
 
 }
