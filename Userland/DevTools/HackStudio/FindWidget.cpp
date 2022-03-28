@@ -158,7 +158,7 @@ Vector<GUI::TextDocumentSpan> FindWidget::update_spans(Vector<GUI::TextDocumentS
             continue;
         }
         auto last_span = new_spans.last();
-        if (adjust_end(span).range.start() >= adjust_end(last_span).range.end()) {
+        if (adjust_end(span).range.start() > adjust_end(last_span).range.end()) {
             new_spans.append(span);
             continue;
         }
@@ -176,6 +176,8 @@ Vector<GUI::TextDocumentSpan> FindWidget::update_spans(Vector<GUI::TextDocumentS
            }
            continue;
        }
+       if (adjust_end(span).range.end() < adjust_end(last_span).range.end())
+           continue;
        span.range.set_start(last_span.range.end());
        new_spans.append(span);
     }
