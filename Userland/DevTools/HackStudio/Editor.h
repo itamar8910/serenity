@@ -59,6 +59,8 @@ public:
     virtual void set_cursor(const GUI::TextPosition& a_position) override;
     void set_semantic_syntax_highlighting(bool value);
 
+    virtual void highlighter_did_set_spans(Vector<GUI::TextDocumentSpan> spans) override;
+
 private:
     virtual void focusin_event(GUI::FocusEvent&) override;
     virtual void focusout_event(GUI::FocusEvent&) override;

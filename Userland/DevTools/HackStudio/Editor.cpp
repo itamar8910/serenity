@@ -762,4 +762,13 @@ void Editor::set_semantic_syntax_highlighting(bool value)
     set_syntax_highlighter_for(code_document());
 }
 
+void Editor::highlighter_did_set_spans(Vector<GUI::TextDocumentSpan> spans)
+{
+    if (!wrapper().find_widget().has_results()) {
+        TextEditor::highlighter_did_set_spans(move(spans));
+        return;
+    }
+    TextEditor::highlighter_did_set_spans(wrapper().find_widget().update_spans(move(spans)));
+}
+
 }

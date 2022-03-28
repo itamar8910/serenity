@@ -26,6 +26,9 @@ public:
     void hide();
     bool visible() const { return m_visible; }
 
+    bool has_results() const { return !m_current_results.is_empty(); }
+    Vector<GUI::TextDocumentSpan> update_spans(Vector<GUI::TextDocumentSpan>) const;
+
 private:
     FindWidget(NonnullRefPtr<Editor>);
 
@@ -37,6 +40,7 @@ private:
     void on_find_results(GUI::TextRange current, Vector<GUI::TextRange> all_results);
     GUI::TextDocumentSpan* span_at(GUI::TextPosition);
     void reset_results();
+    void reset_results_and_update_ui();
 
     static constexpr auto widget_height = 25;
 
@@ -45,8 +49,8 @@ private:
     RefPtr<GUI::Button> m_next;
     RefPtr<GUI::Button> m_previous;
     bool m_visible { false };
-    Optional<GUI::TextRange> m_previous_result;
-    Vector<GUI::TextRange> m_previous_results;
+    Optional<GUI::TextRange> m_current_result;
+    Vector<GUI::TextRange> m_current_results;
 };
 
 }

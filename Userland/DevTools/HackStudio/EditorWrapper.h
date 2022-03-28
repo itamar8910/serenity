@@ -54,6 +54,7 @@ public:
     Function<void(EditorWrapper&)> on_tab_close_request;
 
     void search_action();
+    FindWidget const& find_widget() const { return *m_find_widget; }
 
 private:
     static constexpr auto untitled_label = "(Untitled)";
