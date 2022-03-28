@@ -73,18 +73,18 @@ void FindWidget::find_next(Direction direction)
     if (direction == Direction::Forward)
         range = m_editor->document().find_next(needle,
             m_current_result.has_value() ? m_current_result->end() : GUI::TextPosition {},
-            GUI::TextDocument::SearchShouldWrap::Yes, false, true);
+            GUI::TextDocument::SearchShouldWrap::Yes, false, false);
     else
         range = m_editor->document().find_previous(needle,
             m_current_result.has_value() ? m_current_result->start() : GUI::TextPosition {},
-            GUI::TextDocument::SearchShouldWrap::Yes, false, true);
+            GUI::TextDocument::SearchShouldWrap::Yes, false, false);
 
     if (!range.is_valid()) {
         reset_results_and_update_ui();
         return;
     }
 
-    auto all_results = m_editor->document().find_all(needle, false, true);
+    auto all_results = m_editor->document().find_all(needle, false, false);
     on_find_results(range, all_results);
 }
 
@@ -112,14 +112,6 @@ void FindWidget::reset_results()
 
 Vector<GUI::TextDocumentSpan> FindWidget::update_spans(Vector<GUI::TextDocumentSpan> spans) const
 {
-    dbgln("spans:");
-    for (auto& span : spans) {
-        dbgln("{} ({})", span.range, m_editor->document().text_in_range(span.range));
-    }
-
-    //    auto inclusive_range = span.range;
-    //    inclusive_range.set_end({span.range.end().line(), span.range.end().column()  == 0 ? 0 : span.range.end().column() - 1});
-
     for (auto& result : m_current_results) {
         GUI::TextDocumentSpan span;
         span.range = result;
@@ -147,12 +139,9 @@ Vector<GUI::TextDocumentSpan> FindWidget::update_spans(Vector<GUI::TextDocumentS
         return span;
     };
 
-
     Vector<GUI::TextDocumentSpan> new_spans;
 
-    dbgln("all spans:");
     for (auto& span : spans) {
-        dbgln("{} ({}): {}", span.range, m_editor->document().text_in_range(span.range), span.attributes.background_color == palette().hover_highlight());
         if (new_spans.is_empty()) {
             new_spans.append(span);
             continue;
@@ -162,24 +151,33 @@ Vector<GUI::TextDocumentSpan> FindWidget::update_spans(Vector<GUI::TextDocumentS
             new_spans.append(span);
             continue;
         }
-       if (is_find_result(span)) {
-           new_spans.take_last();
-           auto last_span_copy = last_span;
-           last_span.range.set_end(span.range.start());
-           span.attributes.color = last_span.attributes.color;
-           span.attributes.bold = last_span.attributes.bold;
-           new_spans.append(last_span);
-           new_spans.append(span);
-           if (adjust_end(span).range.end() < adjust_end(last_span_copy).range.end()) {
-               last_span_copy.range.set_start(span.range.end());
-               new_spans.append(last_span_copy);
-           }
-           continue;
-       }
-       if (adjust_end(span).range.end() < adjust_end(last_span).range.end())
-           continue;
-       span.range.set_start(last_span.range.end());
-       new_spans.append(span);
+        if (is_find_result(span)) {
+            new_spans.take_last();
+            auto last_span_copy = last_span;
+            last_span.range.set_end(span.range.start());
+            span.attributes.color = last_span.attributes.color;
+            span.attributes.bold = last_span.attributes.bold;
+            new_spans.append(last_span);
+            new_spans.append(span);
+            if (adjust_end(span).range.end() < adjust_end(last_span_copy).range.end()) {
+                last_span_copy.range.set_start(span.range.end());
+                new_spans.append(last_span_copy);
+            }
+            continue;
+        }
+        if (adjust_end(span).range.end() < adjust_end(last_span).range.end())
+            continue;
+
+        new_spans.take_last();
+        auto last_span_copy = last_span;
+        last_span.range.set_end(span.range.start());
+        new_spans.append(last_span);
+        last_span_copy.range.set_start(span.range.start());
+        last_span_copy.attributes.color = span.attributes.color;
+        last_span_copy.attributes.bold = span.attributes.bold;
+        new_spans.append(last_span_copy);
+        span.range.set_start(last_span_copy.range.end());
+        new_spans.append(span);
     }
 
     return new_spans;
