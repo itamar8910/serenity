@@ -723,20 +723,15 @@ bool Widget::is_focused() const
 
 void Widget::set_focus(bool focus, FocusSource source)
 {
-    dbgln("a1");
     if (m_focus_proxy)
         return m_focus_proxy->set_focus(focus, source);
 
-    dbgln("a2");
     auto* win = window();
     if (!win)
         return;
-    dbgln("a3");
     if (focus) {
-        dbgln("a4");
         win->set_focused_widget(this, source);
     } else {
-        dbgln("a5");
         if (win->focused_widget() == this)
             win->set_focused_widget(nullptr, source);
     }

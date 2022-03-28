@@ -75,6 +75,7 @@ public:
     void set_span_at_index(size_t index, TextDocumentSpan span) { m_spans[index] = move(span); }
 
     const TextDocumentSpan* span_at(const TextPosition&) const;
+    TextDocumentSpan* span_at(const TextPosition&);
 
     void append_line(NonnullOwnPtr<TextDocumentLine>);
     void remove_line(size_t line_index);
@@ -89,7 +90,7 @@ public:
     String text() const;
     String text_in_range(const TextRange&) const;
 
-    Vector<TextRange> find_all(StringView needle, bool regmatch = false);
+    Vector<TextRange> find_all(StringView needle, bool regmatch = false, bool match_case = true);
 
     void update_regex_matches(StringView);
     TextRange find_next(StringView, const TextPosition& start = {}, SearchShouldWrap = SearchShouldWrap::Yes, bool regmatch = false, bool match_case = true);

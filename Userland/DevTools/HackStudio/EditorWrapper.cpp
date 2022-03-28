@@ -20,11 +20,13 @@ namespace HackStudio {
 EditorWrapper::EditorWrapper()
 {
     set_layout<GUI::VerticalBoxLayout>();
-
     m_filename_title = untitled_label;
 
     // FIXME: Propagate errors instead of giving up
-    m_editor = MUST(try_add<Editor>());
+    m_editor = MUST(Editor::try_create());
+    m_find_widget = add<FindWidget>(*m_editor);
+
+    add_child(*m_editor);
     m_editor->set_ruler_visible(true);
     m_editor->set_automatic_indentation_enabled(true);
 
@@ -39,8 +41,6 @@ EditorWrapper::EditorWrapper()
     m_editor->on_modified_change = [this](bool) {
         update_title();
     };
-
-    m_find_window = FindWindow::create(*this, *m_editor);
 }
 
 LanguageClient& EditorWrapper::language_client() { return m_editor->language_client(); }
@@ -117,9 +117,12 @@ void EditorWrapper::set_debug_mode(bool enabled)
     m_editor->set_debug_mode(enabled);
 }
 
-void EditorWrapper::show_find_window()
+void EditorWrapper::search_action()
 {
-    m_find_window->show();
+    if (m_find_widget->visible())
+        m_find_widget->hide();
+    else
+        m_find_widget->show();
 }
 
 }

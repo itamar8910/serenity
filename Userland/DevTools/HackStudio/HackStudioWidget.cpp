@@ -1447,8 +1447,7 @@ void HackStudioWidget::create_view_menu(GUI::Window& window)
     view_menu.add_action(*m_locations_history_forward_action);
 
     auto search_action = GUI::Action::create("&Search", { Mod_Ctrl, Key_F }, [this](auto&) {
-        dbgln("search action");
-        current_editor_wrapper().show_find_window();
+        current_editor_wrapper().search_action();
     });
     view_menu.add_action(search_action);
 }
