@@ -12,6 +12,12 @@
         max_width: 250
     }
 
+    @GUI::Label {
+        name: "index_label"
+        max_width: 30
+        text: "3/5"
+    }
+
     @GUI::Button {
         name: "next"
         icon: "/res/icons/16x16/go-down.png"

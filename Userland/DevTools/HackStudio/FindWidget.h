@@ -46,10 +46,11 @@ private:
 
     NonnullRefPtr<Editor> m_editor;
     RefPtr<GUI::TextBox> m_input_field;
+    RefPtr<GUI::Label> m_index_label;
     RefPtr<GUI::Button> m_next;
     RefPtr<GUI::Button> m_previous;
     bool m_visible { false };
-    Optional<GUI::TextRange> m_current_result;
+    Optional<size_t> m_current_result_index;
     Vector<GUI::TextRange> m_current_results;
 };
 

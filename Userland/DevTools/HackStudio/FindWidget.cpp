@@ -19,6 +19,7 @@ FindWidget::FindWidget(NonnullRefPtr<Editor> editor)
     load_from_gml(find_widget_gml);
     set_fixed_height(widget_height);
     m_input_field = find_descendant_of_type_named<GUI::TextBox>("input_field");
+    m_index_label = find_descendant_of_type_named<GUI::Label>("index_label");
     m_next = find_descendant_of_type_named<GUI::Button>("next");
     m_previous = find_descendant_of_type_named<GUI::Button>("previous");
 
@@ -70,14 +71,15 @@ void FindWidget::find_next(Direction direction)
         return;
     }
     GUI::TextRange range {};
-    if (direction == Direction::Forward)
+    if (direction == Direction::Forward) {
         range = m_editor->document().find_next(needle,
-            m_current_result.has_value() ? m_current_result->end() : GUI::TextPosition {},
+            m_current_result_index.has_value() ? m_current_results[*m_current_result_index].end() : GUI::TextPosition {},
             GUI::TextDocument::SearchShouldWrap::Yes, false, false);
-    else
+    } else {
         range = m_editor->document().find_previous(needle,
-            m_current_result.has_value() ? m_current_result->start() : GUI::TextPosition {},
+            m_current_result_index.has_value() ? m_current_results[*m_current_result_index].start() : GUI::TextPosition {},
             GUI::TextDocument::SearchShouldWrap::Yes, false, false);
+    }
 
     if (!range.is_valid()) {
         reset_results_and_update_ui();
@@ -97,8 +99,10 @@ void FindWidget::on_find_results(GUI::TextRange current, Vector<GUI::TextRange> 
 {
     reset_results();
     m_editor->set_cursor(current.start());
-    m_current_result = current;
+    if (auto it = all_results.find(current); it->is_valid())
+        m_current_result_index = it.index();
     m_current_results = move(all_results);
+    m_index_label->set_text(String::formatted("{}/{}", m_current_result_index.value_or(0) + 1, m_current_results.size()));
 
     m_editor->force_rehighlight();
     m_editor->update();
@@ -106,17 +110,18 @@ void FindWidget::on_find_results(GUI::TextRange current, Vector<GUI::TextRange> 
 
 void FindWidget::reset_results()
 {
-    m_current_result = {};
+    m_current_result_index.clear();
     m_current_results.clear();
 }
 
 Vector<GUI::TextDocumentSpan> FindWidget::update_spans(Vector<GUI::TextDocumentSpan> spans) const
 {
-    for (auto& result : m_current_results) {
+    for (size_t i = 0; i < m_current_results.size(); ++i) {
+        auto& result = m_current_results[i];
         GUI::TextDocumentSpan span;
         span.range = result;
         span.attributes.background_color = palette().hover_highlight();
-        if (result == m_current_result)
+        if (m_current_result_index.has_value() && i == m_current_result_index)
             span.attributes.underline = true;
         spans.append(span);
     }
