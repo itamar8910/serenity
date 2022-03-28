@@ -6,6 +6,7 @@
 
 #include "FindWidget.h"
 #include "Editor.h"
+#include <AK/QuickSort.h>
 #include <DevTools/HackStudio/FindWidgetGML.h>
 #include <LibGUI/BoxLayout.h>
 #include <LibGfx/Palette.h>
@@ -112,55 +113,73 @@ void FindWidget::reset_results()
 Vector<GUI::TextDocumentSpan> FindWidget::update_spans(Vector<GUI::TextDocumentSpan> spans) const
 {
     dbgln("spans:");
-    for(auto& span : spans) {
+    for (auto& span : spans) {
         dbgln("{} ({})", span.range, m_editor->document().text_in_range(span.range));
     }
 
+    //    auto inclusive_range = span.range;
+    //    inclusive_range.set_end({span.range.end().line(), span.range.end().column()  == 0 ? 0 : span.range.end().column() - 1});
+
+    for (auto& result : m_current_results) {
+        GUI::TextDocumentSpan span;
+        span.range = result;
+        span.attributes.background_color = palette().hover_highlight();
+        if (result == m_current_result)
+            span.attributes.underline = true;
+        spans.append(span);
+    }
+
+    auto is_find_result = [this](auto& span) -> bool {
+        return span.attributes.background_color.has_value() && span.attributes.background_color.value() == palette().hover_highlight();
+    };
+
+    quick_sort(spans, [&](auto& a, auto& b) {
+        if (a.range.start() == b.range.start()) {
+            // We want the regular span to come first in this case because
+            // we need to copy its color to the "find result" span that will follow it.
+            return !is_find_result(a);
+        }
+        return a.range.start() < b.range.start();
+    });
+
+    auto adjust_end = [](auto span) -> GUI::TextDocumentSpan {
+        span.range.set_end({ span.range.end().line(), span.range.end().column() == 0 ? 0 : span.range.end().column() - 1 });
+        return span;
+    };
+
+
     Vector<GUI::TextDocumentSpan> new_spans;
-    size_t old_span_index = 0;
-    for (auto& find_result : m_current_results) {
-        while (old_span_index < spans.size()) {
-            auto span = spans[old_span_index];
-            auto inclusive_range = span.range;
-            inclusive_range.set_end({span.range.end().line(), span.range.end().column()  == 0 ? 0 : span.range.end().column() - 1});
-            if (inclusive_range.end() >= find_result.start())
-                break;
+
+    dbgln("all spans:");
+    for (auto& span : spans) {
+        dbgln("{} ({}): {}", span.range, m_editor->document().text_in_range(span.range), span.attributes.background_color == palette().hover_highlight());
+        if (new_spans.is_empty()) {
             new_spans.append(span);
-            ++old_span_index;
+            continue;
         }
-
-        if (old_span_index >= spans.size())
-            break;
-
-        auto span = spans[old_span_index++];
-        if (span.range.start() < find_result.start()) {
-            GUI::TextDocumentSpan part_before = span;
-            part_before.range.set_end(find_result.start());
-            new_spans.append(part_before);
+        auto last_span = new_spans.last();
+        if (adjust_end(span).range.start() >= adjust_end(last_span).range.end()) {
+            new_spans.append(span);
+            continue;
         }
-
-        GUI::TextDocumentSpan new_part = span;
-        GUI::TextPosition beginning = span.range.start() < find_result.start() ? find_result.start() : span.range.start();
-        GUI::TextPosition end = span.range.end() > find_result.end() ? find_result.end() : span.range.end();
-        new_part.range = { beginning, end };
-        new_part.attributes.background_color = palette().hover_highlight();
-        if (find_result == m_current_result) {
-            new_part.attributes.underline = true;
-        }
-        new_spans.append(new_part);
-
-        auto inclusive_range = span.range;
-        inclusive_range.set_end({span.range.end().line(), span.range.end().column()  == 0 ? 0 : span.range.end().column() - 1});
-        if (inclusive_range.end() > find_result.end()) {
-            GUI::TextDocumentSpan part_after = span;
-            part_after.range.set_start(find_result.end());
-            new_spans.append(part_after);
-        }
+       if (is_find_result(span)) {
+           new_spans.take_last();
+           auto last_span_copy = last_span;
+           last_span.range.set_end(span.range.start());
+           span.attributes.color = last_span.attributes.color;
+           span.attributes.bold = last_span.attributes.bold;
+           new_spans.append(last_span);
+           new_spans.append(span);
+           if (adjust_end(span).range.end() < adjust_end(last_span_copy).range.end()) {
+               last_span_copy.range.set_start(span.range.end());
+               new_spans.append(last_span_copy);
+           }
+           continue;
+       }
+       span.range.set_start(last_span.range.end());
+       new_spans.append(span);
     }
 
-    while (old_span_index < spans.size()) {
-        new_spans.append(spans[old_span_index++]);
-    }
     return new_spans;
 }
 
