@@ -158,6 +158,7 @@ ErrorOr<void> utime(StringView path, Optional<struct utimbuf>);
 ErrorOr<struct utsname> uname();
 ErrorOr<Array<int, 2>> pipe2(int flags);
 ErrorOr<void> adjtime(const struct timeval* delta, struct timeval* old_delta);
+ErrorOr<String> find_file_in_path(StringView filename);
 enum class SearchInPath {
     No,
     Yes,
