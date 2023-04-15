@@ -230,8 +230,11 @@ int Emulator::exec()
     if (is_profiling() && m_loader_text_size.has_value())
         emit_profile_event(profile_stream(), "mmap"sv, DeprecatedString::formatted(R"("ptr": {}, "size": {}, "name": "/usr/lib/Loader.so")", *m_loader_text_base, *m_loader_text_size));
 
+    bool paused_in_previous = false;
     while (!m_shutdown) {
-        if (m_steps_til_pause) [[likely]] {
+        bool should_pause = ((m_steps_til_pause == 0) || m_breakpoints.contains(m_cpu->rip())) && !paused_in_previous;
+        if (!should_pause) [[likely]] {
+            paused_in_previous = false;
             m_cpu->save_base_rip();
             auto insn = X86::Instruction::from_stream(*m_cpu, X86::ProcessorMode::Long);
             // Exec cycle
@@ -261,6 +264,7 @@ int Emulator::exec()
                 m_steps_til_pause--;
 
         } else {
+            paused_in_previous = true;
             handle_repl();
         }
     }
@@ -332,6 +336,7 @@ void Emulator::handle_repl()
         outln("ret, r: Run until function returns");
         outln("step, s [count]: Execute [count] instructions and then halt");
         outln("signal, sig [number:int], send signal to emulated program (default: sigint:2)");
+        outln("breakpoint, bp [number:hex], add a breakpoint");
     };
     auto line = line_or_error.release_value();
     if (line.is_empty()) {
@@ -356,6 +361,12 @@ void Emulator::handle_repl()
             return;
         }
         m_steps_til_pause = number.value();
+    }  else if(parts[0] == "bp") {
+        auto addr = AK::StringUtils::convert_to_uint_from_hex(parts[1]);
+        if (addr.has_value()) {
+            m_breakpoints.set(addr.value());
+            outln("added breakpoint at: {:p}", addr.value());
+        }
     } else if (parts[0].is_one_of("c"sv, "continue"sv)) {
         m_steps_til_pause = -1;
     } else if (parts[0].is_one_of("r"sv, "ret"sv)) {
